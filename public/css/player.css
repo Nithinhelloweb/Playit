@@ -7,9 +7,9 @@
 
 :root {
     /* Colors */
-    --primary-gradient: linear-gradient(135deg, #4bcba5 0%, #7eb038 100%);
-    --primary-purple: #5cbef6;
-    --primary-pink: #97ec48;
+    --primary-gradient: linear-gradient(135deg, #71ec48 0%, #66b038 100%);
+    --primary-purple: #5bec48;
+    --primary-pink: #60b038;
     --bg-dark: #0F0F1E;
     --bg-card: #1A1A2E;
     --bg-hover: #252541;
@@ -64,8 +64,13 @@ body {
 .main-content {
     margin-left: var(--sidebar-width);
     padding: var(--spacing-lg);
-    padding-bottom: calc(var(--player-height) + var(--spacing-xl) + 20px);
+    padding-bottom: calc(var(--player-height) + var(--spacing-lg) + 40px);
+    /* Extra padding for player bar */
     min-height: 100vh;
+    overflow-y: auto;
+    /* Enable scrolling for entire main content */
+    max-height: 100vh;
+    /* Limit height to viewport */
 }
 
 /* ===== SIDEBAR ===== */
@@ -78,7 +83,7 @@ body {
 }
 
 .sidebar-header svg {
-    filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.5));
+    filter: drop-shadow(0 0 20px rgb(165, 232, 57));
 }
 
 .sidebar-header h2 {
@@ -310,6 +315,32 @@ body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
+    /* Remove max-height to allow natural scrolling with main-content */
+    overflow-y: visible;
+    /* Changed from auto to visible */
+    padding-right: var(--spacing-xs);
+    /* Space for scrollbar */
+    padding-bottom: calc(var(--player-height) + var(--spacing-lg));
+    /* Extra space at bottom to prevent hiding behind player bar */
+}
+
+/* Custom scrollbar styling for when parent scrolls */
+.main-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.main-content::-webkit-scrollbar-track {
+    background: var(--bg-card);
+    border-radius: 4px;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+    background: var(--bg-hover);
+    border-radius: 4px;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+    background: var(--border-color);
 }
 
 .song-item {
@@ -727,12 +758,14 @@ body {
 .btn-play {
     width: 44px;
     height: 44px;
-    background: var(--primary-gradient);
+    background: linear-gradient(135deg, #83bc34 0%, #97ff5f 100%);
     box-shadow: var(--shadow-sm);
+    color: white;
+    /* Make play/pause icons white */
 }
 
 .btn-play:hover {
-    background: linear-gradient(135deg, #9D6EFF 0%, #F055AB 100%);
+    background: linear-gradient(135deg, #56f058 0%, #7ac040 100%);
     transform: scale(1.05);
 }
 
@@ -1289,6 +1322,8 @@ body {
     .main-content {
         margin-left: 0;
         padding: var(--spacing-md);
+        padding-bottom: calc(var(--player-height) + 120px);
+        /* Extra padding for mobile player bar */
     }
 
     .player-bar {
@@ -1399,6 +1434,11 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
 
+    /* Mobile: Extra padding to prevent songs from hiding behind player bar */
+    .song-list {
+        padding-bottom: calc(var(--player-height) + 100px);
+    }
+
     /* Keep all controls visible but smaller on mobile */
     #shuffleBtn,
     #repeatBtn {
@@ -1472,6 +1512,11 @@ body {
         font-size: 1.25rem;
     }
 
+    /* Small mobile: Even more padding for player bar */
+    .song-list {
+        padding-bottom: calc(var(--player-height) + 120px);
+    }
+
     /* Keep skip buttons visible but smaller */
     #skipBackBtn,
     #skipForwardBtn {
@@ -1515,7 +1560,8 @@ body {
 
     #skipBackBtn,
     #skipForwardBtn {
-        display: none;
+        width: 48px;
+        height: 48px;
     }
 
     .control-buttons {

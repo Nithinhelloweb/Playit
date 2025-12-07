@@ -107,7 +107,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-    console.log(`🎵 Music Player Server running on port ${PORT}`);
+    console.log(`🎵 TamilBeats Server running on port ${PORT}`);
     console.log(`📁 Access the app at http://localhost:${PORT}`);
 });
 
