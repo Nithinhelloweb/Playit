@@ -21,7 +21,14 @@ const app = express();
 /**
  * Middleware
  */
-app.use(cors()); // Enable CORS for all routes
+// CORS Configuration - Environment aware
+const corsOptions = {
+    origin: process.env.NODE_ENV === 'production'
+        ? true  // Allow same-origin in production
+        : '*',  // Allow all origins in development
+    credentials: true
+};
+app.use(cors(corsOptions)); // Enable CORS for all routes
 app.use(express.json()); // Parse JSON request bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 

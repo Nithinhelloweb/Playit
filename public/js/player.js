@@ -107,7 +107,11 @@ const restorePlaybackState = async () => {
             state.currentSong = song;
             state.currentIndex = state.allSongs.findIndex(s => s._id === song._id);
 
-            audio.src = `http://localhost:5000/api/songs/stream/${song._id}`;
+            // Dynamic API URL for audio streaming
+            const apiBaseUrl = window.location.hostname === 'localhost'
+                ? 'http://localhost:5000'
+                : window.location.origin;
+            audio.src = `${apiBaseUrl}/api/songs/stream/${song._id}`;
 
             // Wait for audio to be ready before setting currentTime
             audio.addEventListener('loadedmetadata', function onLoaded() {
@@ -344,8 +348,11 @@ const playSong = async (song, queue = null) => {
     showLoading();
     updatePlayerUI();
 
-    // Set audio source
-    audio.src = `http://localhost:5000/api/songs/stream/${song._id}`;
+    // Set audio source with dynamic API URL
+    const apiBaseUrl = window.location.hostname === 'localhost'
+        ? 'http://localhost:5000'
+        : window.location.origin;
+    audio.src = `${apiBaseUrl}/api/songs/stream/${song._id}`;
 
     // Wait for audio to be ready with timeout
     const playAudio = () => {

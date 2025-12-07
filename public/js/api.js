@@ -3,7 +3,10 @@
  * Centralized HTTP client for all API requests
  */
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// Dynamic API URL - works both locally and on Vercel
+const API_BASE_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:5000/api'
+    : `${window.location.origin}/api`;
 
 /**
  * Get authentication token from localStorage
