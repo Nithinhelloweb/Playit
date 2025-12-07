@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Music Player</title>
+  <link rel="stylesheet" href="/css/auth.css">
+</head>
+
+<body>
+  <div class="auth-container">
+    <div class="auth-box">
+      <div class="logo">
+        <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="30" cy="30" r="28" fill="url(#gradient)" />
+          <path d="M40 30L25 40V20L40 30Z" fill="white" />
+          <defs>
+            <linearGradient id="gradient" x1="0" y1="0" x2="60" y2="60">
+              <stop offset="0%" stop-color="#8B5CF6" />
+              <stop offset="100%" stop-color="#EC4899" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <h1>Music Player</h1>
+      </div>
+
+      <h2>Welcome Back</h2>
+      <p class="subtitle">Login to continue listening</p>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" placeholder="Enter your email" required>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter your password" required>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+
+        <button type="submit" class="btn-primary">
+          <span>Login</span>
+        </button>
+      </form>
+
+      <p class="switch-auth">
+        Don't have an account?
+        <a href="/signup">Sign up</a>
+      </p>
+    </div>
+
+    <div class="background-animation">
+      <div class="circle circle-1"></div>
+      <div class="circle circle-2"></div>
+      <div class="circle circle-3"></div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Music Player</title>
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+
+<body>
+    <div class="admin-container">
+        <!-- Header -->
+        <header class="admin-header">
+            <div class="header-left">
+                <svg width="40" height="40" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="30" cy="30" r="28" fill="url(#gradient)" />
+                    <path d="M40 30L25 40V20L40 30Z" fill="white" />
+                    <defs>
+                        <linearGradient id="gradient" x1="0" y1="0" x2="60" y2="60">
+                            <stop offset="0%" stop-color="#8B5CF6" />
+                            <stop offset="100%" stop-color="#EC4899" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>Admin Panel</h1>
+            </div>
+            <div class="header-center">
+                <nav class="quick-nav">
+                    <button class="quick-nav-btn"
+                        onclick="document.querySelector('.upload-section').scrollIntoView({behavior: 'smooth'})">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        Upload Song
+                    </button>
+                    <button class="quick-nav-btn"
+                        onclick="document.querySelector('.songs-section').scrollIntoView({behavior: 'smooth'})">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M9 18V5l12-2v13"></path>
+                            <circle cx="6" cy="18" r="3"></circle>
+                            <circle cx="18" cy="16" r="3"></circle>
+                        </svg>
+                        Manage Songs
+                    </button>
+                    <button class="quick-nav-btn"
+                        onclick="document.querySelector('.users-section').scrollIntoView({behavior: 'smooth'})">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        Manage Users
+                    </button>
+                </nav>
+            </div>
+            <div class="header-right">
+                <a href="/player" class="btn-secondary">Go to Player</a>
+                <button class="btn-logout" id="logoutBtn">Logout</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <!-- Upload Section -->
+            <section class="upload-section">
+                <h2>Upload New Song</h2>
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="songFile">Audio File (MP3, WAV, M4A, FLAC) *</label>
+                            <div class="file-input-wrapper">
+                                <input type="file" id="songFile" name="song" accept=".mp3,.m4a,.wav,.flac" required>
+                                <span class="file-name">No file selected</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="songTitle">Song Title *</label>
+                            <input type="text" id="songTitle" name="title" placeholder="Enter song title" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="songArtist">Artist *</label>
+                            <input type="text" id="songArtist" name="artist" placeholder="Enter artist name" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="songAlbum">Album</label>
+                            <input type="text" id="songAlbum" name="album" placeholder="Enter album name">
+                        </div>
+                    </div>
+
+                    <div id="uploadError" class="error-message"></div>
+                    <div id="uploadSuccess" class="success-message"></div>
+
+                    <button type="submit" class="btn-primary" id="uploadBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <span>Upload Song</span>
+                    </button>
+                </form>
+            </section>
+
+            <!-- Songs Management -->
+            <section class="songs-section">
+                <div class="section-header">
+                    <h2>Manage Songs</h2>
+                    <p class="song-count" id="songCount">0 songs</p>
+                </div>
+                <div class="table-container">
+                    <table class="data-table" id="songsTable">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Artist</th>
+                                <th>Album</th>
+                                <th>Duration</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="songsTableBody">
+                            <!-- Songs will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Users Management -->
+            <section class="users-section">
+                <div class="section-header">
+                    <h2>Manage Users</h2>
+                    <p class="user-count" id="userCount">0 users</p>
+                </div>
+                <div class="table-container">
+                    <table class="data-table" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Admin</th>
+                                <th>Joined</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <!-- Users will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Edit Song Modal -->
+    <div class="modal" id="editSongModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Song</h3>
+                <button class="btn-icon" id="closeEditModalBtn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <form id="editSongForm">
+                <input type="hidden" id="editSongId">
+                <div class="form-group">
+                    <label for="editTitle">Song Title</label>
+                    <input type="text" id="editTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="editArtist">Artist</label>
+                    <input type="text" id="editArtist" required>
+                </div>
+                <div class="form-group">
+                    <label for="editAlbum">Album</label>
+                    <input type="text" id="editAlbum">
+                </div>
+                <div class="form-group">
+                    <label for="editDuration">Duration (seconds)</label>
+                    <input type="number" id="editDuration" min="0">
+                </div>
+                <button type="submit" class="btn-primary">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/admin.js"></script>
+</body>
+
+</html>
