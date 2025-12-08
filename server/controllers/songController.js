@@ -1,7 +1,5 @@
-const Song = require('../models/Song');
-const RecentlyPlayed = require('../models/RecentlyPlayed');
-const { getGridFSBucket } = require('../utils/gridfs');
-const mongoose = require('mongoose');
+const Song = require('../models/dynamodb/Song');
+const RecentlyPlayed = require('../models/dynamodb/RecentlyPlayed');
 
 /**
  * Get all songs
@@ -9,8 +7,15 @@ const mongoose = require('mongoose');
  */
 const getAllSongs = async (req, res) => {
     try {
-        const songs = await Song.find().sort({ createdAt: -1 });
-        res.json(songs);
+        const songs = await Song.findAll();
+
+        // Map to include _id for backward compatibility
+        const songsWithId = songs.map(song => ({
+            ...song,
+            _id: song.songId
+        }));
+
+        res.json(songsWithId);
     } catch (error) {
         console.error('Get songs error:', error);
         res.status(500).json({ message: 'Error fetching songs' });
@@ -29,7 +34,11 @@ const getSongById = async (req, res) => {
             return res.status(404).json({ message: 'Song not found' });
         }
 
-        res.json(song);
+        // Add _id for backward compatibility
+        res.json({
+            ...song,
+            _id: song.songId
+        });
     } catch (error) {
         console.error('Get song error:', error);
         res.status(500).json({ message: 'Error fetching song' });
@@ -37,9 +46,9 @@ const getSongById = async (req, res) => {
 };
 
 /**
- * Stream song file from Google Drive
+ * Stream song file from S3
  * GET /api/songs/stream/:id
- * Redirects to Google Drive direct download URL
+ * Redirects to S3 URL for streaming
  */
 const streamSong = async (req, res) => {
     try {
@@ -49,59 +58,9 @@ const streamSong = async (req, res) => {
             return res.status(404).json({ message: 'Song not found' });
         }
 
-        // Check if song has Google Drive URL
-        if (song.googleDriveUrl) {
-            // Redirect to Google Drive streaming URL
-            return res.redirect(song.googleDriveUrl);
-        }
-
-        // Legacy support: if gridfsId exists, try GridFS
-        if (song.gridfsId) {
-            const bucket = getGridFSBucket();
-            if (!bucket) {
-                return res.status(500).json({ message: 'Storage not initialized' });
-            }
-
-            const files = await bucket.find({ _id: song.gridfsId }).toArray();
-            if (!files || files.length === 0) {
-                return res.status(404).json({ message: 'Audio file not found' });
-            }
-
-            const file = files[0];
-            const fileSize = file.length;
-            const range = req.headers.range;
-            const contentType = song.mimeType || 'audio/mpeg';
-
-            if (range) {
-                const parts = range.replace(/bytes=/, '').split('-');
-                const start = parseInt(parts[0], 10);
-                const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-                const chunksize = (end - start) + 1;
-
-                const head = {
-                    'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-                    'Accept-Ranges': 'bytes',
-                    'Content-Length': chunksize,
-                    'Content-Type': contentType,
-                };
-                res.writeHead(206, head);
-
-                const downloadStream = bucket.openDownloadStream(song.gridfsId, {
-                    start: start,
-                    end: end + 1
-                });
-                downloadStream.pipe(res);
-            } else {
-                const head = {
-                    'Content-Length': fileSize,
-                    'Content-Type': contentType,
-                    'Accept-Ranges': 'bytes'
-                };
-                res.writeHead(200, head);
-
-                const downloadStream = bucket.openDownloadStream(song.gridfsId);
-                downloadStream.pipe(res);
-            }
+        // Redirect to S3 URL for streaming
+        if (song.s3Url) {
+            return res.redirect(song.s3Url);
         } else {
             return res.status(404).json({ message: 'Audio file not found' });
         }
@@ -123,16 +82,15 @@ const searchSongs = async (req, res) => {
             return res.json([]);
         }
 
-        // Search in title, artist, and album fields
-        const songs = await Song.find({
-            $or: [
-                { title: { $regex: query, $options: 'i' } },
-                { artist: { $regex: query, $options: 'i' } },
-                { album: { $regex: query, $options: 'i' } }
-            ]
-        }).limit(50);
+        const songs = await Song.search(query);
 
-        res.json(songs);
+        // Map to include _id for backward compatibility
+        const songsWithId = songs.map(song => ({
+            ...song,
+            _id: song.songId
+        }));
+
+        res.json(songsWithId.slice(0, 50)); // Limit to 50 results
     } catch (error) {
         console.error('Search error:', error);
         res.status(500).json({ message: 'Error searching songs' });
@@ -140,7 +98,7 @@ const searchSongs = async (req, res) => {
 };
 
 /**
- * Download song from Google Drive
+ * Download song from S3
  * GET /api/songs/download/:id
  * Requires authentication
  */
@@ -152,32 +110,9 @@ const downloadSong = async (req, res) => {
             return res.status(404).json({ message: 'Song not found' });
         }
 
-        // Check if song has Google Drive URL
-        if (song.googleDriveUrl) {
-            // Redirect to Google Drive download URL
-            return res.redirect(song.googleDriveUrl);
-        }
-
-        // Legacy support: if gridfsId exists, try GridFS
-        if (song.gridfsId) {
-            const bucket = getGridFSBucket();
-            if (!bucket) {
-                return res.status(500).json({ message: 'Storage not initialized' });
-            }
-
-            const files = await bucket.find({ _id: song.gridfsId }).toArray();
-            if (!files || files.length === 0) {
-                return res.status(404).json({ message: 'Audio file not found' });
-            }
-
-            const file = files[0];
-
-            res.setHeader('Content-Disposition', `attachment; filename="${song.title} - ${song.artist}.flac"`);
-            res.setHeader('Content-Type', song.mimeType || 'audio/flac');
-            res.setHeader('Content-Length', file.length);
-
-            const downloadStream = bucket.openDownloadStream(song.gridfsId);
-            downloadStream.pipe(res);
+        // Redirect to S3 URL for download
+        if (song.s3Url) {
+            return res.redirect(song.s3Url);
         } else {
             return res.status(404).json({ message: 'Audio file not found' });
         }
@@ -195,7 +130,7 @@ const downloadSong = async (req, res) => {
 const addToRecentlyPlayed = async (req, res) => {
     try {
         const songId = req.params.id;
-        const userId = req.user._id;
+        const userId = req.user.userId;
 
         // Check if song exists
         const song = await Song.findById(songId);
@@ -203,26 +138,8 @@ const addToRecentlyPlayed = async (req, res) => {
             return res.status(404).json({ message: 'Song not found' });
         }
 
-        // Remove existing entry for this song (to avoid duplicates)
-        await RecentlyPlayed.deleteOne({ user: userId, song: songId });
-
-        // Add to recently played with current timestamp
-        await RecentlyPlayed.create({
-            user: userId,
-            song: songId
-        });
-
-        // Keep only last 20 items per user
-        const recentCount = await RecentlyPlayed.countDocuments({ user: userId });
-        if (recentCount > 20) {
-            const toRemove = await RecentlyPlayed.find({ user: userId })
-                .sort({ playedAt: 1 })
-                .limit(recentCount - 20);
-
-            await RecentlyPlayed.deleteMany({
-                _id: { $in: toRemove.map(item => item._id) }
-            });
-        }
+        // Add to recently played with denormalized song data
+        await RecentlyPlayed.add(userId, song);
 
         res.json({ message: 'Added to recently played' });
     } catch (error) {
@@ -238,14 +155,22 @@ const addToRecentlyPlayed = async (req, res) => {
  */
 const getRecentlyPlayed = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user.userId;
 
-        const recentlyPlayed = await RecentlyPlayed.find({ user: userId })
-            .sort({ playedAt: -1 })
-            .limit(20)
-            .populate('song');
+        const recentlyPlayed = await RecentlyPlayed.findByUser(userId);
 
-        res.json(recentlyPlayed);
+        // Map to expected format
+        const formatted = recentlyPlayed.map(item => ({
+            _id: item.recentlyPlayedId,
+            user: userId,
+            song: {
+                ...item.songData,
+                _id: item.songData.songId
+            },
+            playedAt: item.playedAt
+        }));
+
+        res.json(formatted);
     } catch (error) {
         console.error('Get recently played error:', error);
         res.status(500).json({ message: 'Error fetching recently played' });
@@ -259,7 +184,7 @@ const getRecentlyPlayed = async (req, res) => {
 const getAlbums = async (req, res) => {
     try {
         // Get all songs
-        const songs = await Song.find().sort({ album: 1, title: 1 });
+        const songs = await Song.findAll();
 
         // Group songs by album
         const albumMap = new Map();
@@ -278,7 +203,11 @@ const getAlbums = async (req, res) => {
             }
 
             const album = albumMap.get(albumName);
-            album.songs.push(song);
+            // Add _id for backward compatibility
+            album.songs.push({
+                ...song,
+                _id: song.songId
+            });
             album.totalDuration += song.duration || 0;
 
             // Use cover image from first song that has one
@@ -315,4 +244,3 @@ module.exports = {
     getRecentlyPlayed,
     getAlbums
 };
-

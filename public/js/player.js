@@ -268,15 +268,6 @@ const renderSongList = (songs, containerId = 'songList') => {
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
           </svg>
         </button>
-        ${user.isAdmin || true ? `
-          <button class="btn-icon download-btn" data-song-id="${song._id}" title="Download">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-          </button>
-        ` : ''}
       </div>
     </div>
   `).join('');
@@ -297,15 +288,6 @@ const renderSongList = (songs, containerId = 'songList') => {
             e.stopPropagation();
             const songId = btn.dataset.songId;
             await toggleFavorite(songId, btn);
-        });
-    });
-
-    // Download buttons
-    container.querySelectorAll('.download-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const songId = btn.dataset.songId;
-            API.songs.download(songId);
         });
     });
 
@@ -961,3 +943,347 @@ const formatTime = (seconds) => {
 // ===== INITIALIZE =====
 loadInitialData();
 
+/**
+ * EXPANDABLE PLAYER MODAL - Full JavaScript Implementation
+ * Add this to player.js or create a new file and include it in player.html
+ */
+
+(function () {
+    'use strict';
+
+    // Modal elements
+    const playerModal = document.getElementById('playerModal');
+    const playerModalBackdrop = document.getElementById('playerModalBackdrop');
+    const closePlayerModal = document.getElementById('closePlayerModal');
+    const playerBar = document.getElementById('playerBar');
+
+    // Modal controls
+    const modalPlayPauseBtn = document.getElementById('modalPlayPauseBtn');
+    const modalPrevBtn = document.getElementById('modalPrevBtn');
+    const modalNextBtn = document.getElementById('modalNextBtn');
+    const modalShuffleBtn = document.getElementById('modalShuffleBtn');
+    const modalRepeatBtn = document.getElementById('modalRepeatBtn');
+    const modalProgressBar = document.getElementById('modalProgressBar');
+    const modalProgressFilled = document.getElementById('modalProgressFilled');
+    const modalCurrentTime = document.getElementById('modalCurrentTime');
+    const modalTotalTime = document.getElementById('modalTotalTime');
+    const modalVolumeSlider = document.getElementById('modalVolumeSlider');
+    const modalMuteBtn = document.getElementById('modalMuteBtn');
+    const modalFavoriteBtn = document.getElementById('modalFavoriteBtn');
+
+    // Modal display elements
+    const modalAlbumArt = document.getElementById('modalAlbumArt');
+    const modalSongTitle = document.getElementById('modalSongTitle');
+    const modalSongArtist = document.getElementById('modalSongArtist');
+    const modalSongAlbum = document.getElementById('modalSongAlbum');
+
+    // Player bar elements (existing)
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    const repeatBtn = document.getElementById('repeatBtn');
+    const progressBar = document.getElementById('progressBar');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const currentFavoriteBtn = document.getElementById('currentFavoriteBtn');
+
+    /**
+     * Open the player modal
+     */
+    function openPlayerModal() {
+        playerModal.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent scrolling
+
+        // Sync current state to modal
+        syncModalState();
+    }
+
+    /**
+     * Close the player modal
+     */
+    function closeModal() {
+        playerModal.classList.remove('active');
+        document.body.style.overflow = ''; // Restore scrolling
+    }
+
+    /**
+     * Sync all player state to modal
+     */
+    function syncModalState() {
+        // Sync song info
+        const currentSongTitle = document.getElementById('currentSongTitle');
+        const currentSongArtist = document.getElementById('currentSongArtist');
+
+        if (currentSongTitle && modalSongTitle) {
+            modalSongTitle.textContent = currentSongTitle.textContent;
+        }
+
+        if (currentSongArtist && modalSongArtist) {
+            modalSongArtist.textContent = currentSongArtist.textContent;
+        }
+
+        // Sync album art
+        const albumArt = document.getElementById('albumArt');
+        if (albumArt && modalAlbumArt) {
+            // Clone the album art content
+            modalAlbumArt.innerHTML = albumArt.innerHTML;
+        }
+
+        // Sync album name if available from current song
+        if (window.currentSong && window.currentSong.album) {
+            modalSongAlbum.textContent = window.currentSong.album;
+        }
+
+        // Sync play/pause state
+        const isPlaying = !audioPlayer.paused;
+        updateModalPlayButton(isPlaying);
+
+        // Sync volume
+        if (volumeSlider && modalVolumeSlider) {
+            modalVolumeSlider.value = volumeSlider.value;
+        }
+
+        // Sync shuffle/repeat state
+        if (shuffleBtn && modalShuffleBtn) {
+            if (shuffleBtn.classList.contains('active')) {
+                modalShuffleBtn.classList.add('active');
+            } else {
+                modalShuffleBtn.classList.remove('active');
+            }
+        }
+
+        if (repeatBtn && modalRepeatBtn) {
+            if (repeatBtn.classList.contains('active')) {
+                modalRepeatBtn.classList.add('active');
+            } else {
+                modalRepeatBtn.classList.remove('active');
+            }
+        }
+
+        // Sync favorite state
+        if (currentFavoriteBtn && modalFavoriteBtn) {
+            if (currentFavoriteBtn.classList.contains('active')) {
+                modalFavoriteBtn.classList.add('active');
+            } else {
+                modalFavoriteBtn.classList.remove('active');
+            }
+        }
+    }
+
+    /**
+     * Update modal play button state
+     */
+    function updateModalPlayButton(isPlaying) {
+        const playIcon = modalPlayPauseBtn.querySelector('.play-icon');
+        const pauseIcon = modalPlayPauseBtn.querySelector('.pause-icon');
+
+        if (isPlaying) {
+            playIcon.classList.add('hidden');
+            pauseIcon.classList.remove('hidden');
+        } else {
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Update modal progress bar
+     */
+    function updateModalProgress() {
+        if (!audioPlayer || !modalProgressBar) return;
+
+        const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100 || 0;
+        modalProgressFilled.style.width = `${progress}%`;
+
+        // Update time displays
+        if (modalCurrentTime) {
+            modalCurrentTime.textContent = formatTime(audioPlayer.currentTime);
+        }
+        if (modalTotalTime) {
+            modalTotalTime.textContent = formatTime(audioPlayer.duration);
+        }
+    }
+
+    /**
+     * Format time in MM:SS
+     */
+    function formatTime(seconds) {
+        if (isNaN(seconds)) return '0:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    /**
+     * Handle modal progress bar click
+     */
+    function handleModalProgressClick(e) {
+        if (!audioPlayer) return;
+
+        const rect = modalProgressBar.getBoundingClientRect();
+        const percent = (e.clientX - rect.left) / rect.width;
+        audioPlayer.currentTime = percent * audioPlayer.duration;
+    }
+
+    /**
+     * Handle modal volume change
+     */
+    function handleModalVolumeChange() {
+        if (!audioPlayer || !volumeSlider) return;
+
+        const volume = modalVolumeSlider.value / 100;
+        audioPlayer.volume = volume;
+        volumeSlider.value = modalVolumeSlider.value; // Sync to main player
+    }
+
+    // ========================================
+    // EVENT LISTENERS
+    // ========================================
+
+    // Open modal when clicking player bar
+    if (playerBar) {
+        playerBar.addEventListener('click', (e) => {
+            // Don't open if clicking buttons
+            if (e.target.closest('button') || e.target.closest('input[type="range"]')) {
+                return;
+            }
+            openPlayerModal();
+        });
+    }
+
+    // Close modal events
+    if (closePlayerModal) {
+        closePlayerModal.addEventListener('click', closeModal);
+    }
+
+    if (playerModalBackdrop) {
+        playerModalBackdrop.addEventListener('click', closeModal);
+    }
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && playerModal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+
+    // Modal control buttons
+    if (modalPlayPauseBtn && playPauseBtn) {
+        modalPlayPauseBtn.addEventListener('click', () => {
+            playPauseBtn.click(); // Trigger existing player logic
+        });
+    }
+
+    if (modalPrevBtn && prevBtn) {
+        modalPrevBtn.addEventListener('click', () => {
+            prevBtn.click();
+        });
+    }
+
+    if (modalNextBtn && nextBtn) {
+        modalNextBtn.addEventListener('click', () => {
+            nextBtn.click();
+        });
+    }
+
+    if (modalShuffleBtn && shuffleBtn) {
+        modalShuffleBtn.addEventListener('click', () => {
+            shuffleBtn.click();
+            // Sync state
+            setTimeout(() => {
+                if (shuffleBtn.classList.contains('active')) {
+                    modalShuffleBtn.classList.add('active');
+                } else {
+                    modalShuffleBtn.classList.remove('active');
+                }
+            }, 100);
+        });
+    }
+
+    if (modalRepeatBtn && repeatBtn) {
+        modalRepeatBtn.addEventListener('click', () => {
+            repeatBtn.click();
+            // Sync state
+            setTimeout(() => {
+                if (repeatBtn.classList.contains('active')) {
+                    modalRepeatBtn.classList.add('active');
+                } else {
+                    modalRepeatBtn.classList.remove('active');
+                }
+            }, 100);
+        });
+    }
+
+    if (modalFavoriteBtn && currentFavoriteBtn) {
+        modalFavoriteBtn.addEventListener('click', () => {
+            currentFavoriteBtn.click();
+            // Sync state
+            setTimeout(() => {
+                if (currentFavoriteBtn.classList.contains('active')) {
+                    modalFavoriteBtn.classList.add('active');
+                    modalFavoriteBtn.querySelector('svg').style.fill = 'var(--primary-pink)';
+                } else {
+                    modalFavoriteBtn.classList.remove('active');
+                    modalFavoriteBtn.querySelector('svg').style.fill = 'none';
+                }
+            }, 100);
+        });
+    }
+
+    // Progress bar click
+    if (modalProgressBar) {
+        modalProgressBar.addEventListener('click', handleModalProgressClick);
+    }
+
+    // Volume slider
+    if (modalVolumeSlider) {
+        modalVolumeSlider.addEventListener('input', handleModalVolumeChange);
+    }
+
+    // Mute button
+    if (modalMuteBtn) {
+        modalMuteBtn.addEventListener('click', () => {
+            const muteBtn = document.getElementById('muteBtn');
+            if (muteBtn) muteBtn.click();
+        });
+    }
+
+    // Listen to audio player events to update modal
+    if (audioPlayer) {
+        audioPlayer.addEventListener('timeupdate', () => {
+            if (playerModal.classList.contains('active')) {
+                updateModalProgress();
+            }
+        });
+
+        audioPlayer.addEventListener('play', () => {
+            updateModalPlayButton(true);
+        });
+
+        audioPlayer.addEventListener('pause', () => {
+            updateModalPlayButton(false);
+        });
+
+        // Update modal when song changes
+        audioPlayer.addEventListener('loadedmetadata', () => {
+            if (playerModal.classList.contains('active')) {
+                syncModalState();
+            }
+        });
+    }
+
+    // Handle window resize for responsive adjustments
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            if (playerModal.classList.contains('active')) {
+                syncModalState();
+            }
+        }, 250);
+    });
+
+    console.log('✅ Expandable Player Modal initialized');
+
+})();

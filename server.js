@@ -1,10 +1,8 @@
 require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const { initGridFS } = require('./server/utils/gridfs');
-const { initGoogleDrive } = require('./server/utils/googleDrive');
+const { createTables } = require('./server/utils/createTables');
 
 // Import routes
 const authRoutes = require('./server/routes/auth');
@@ -66,29 +64,21 @@ app.get('/admin', (req, res) => {
 });
 
 /**
- * MongoDB Connection
+ * DynamoDB Connection & Table Creation
  */
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/music-player';
+const initializeDynamoDB = async () => {
+    try {
+        console.log('🔧 Initializing DynamoDB tables...');
+        await createTables();
+        console.log('✅ DynamoDB tables ready');
+    } catch (error) {
+        console.error('❌ DynamoDB initialization error:', error);
+        console.error('⚠️  Server will continue, but database operations may fail');
+    }
+};
 
-mongoose.connect(MONGODB_URI)
-    .then(() => {
-        console.log('✅ MongoDB connected successfully');
-
-        // Initialize GridFS bucket for legacy audio files
-        initGridFS();
-
-        // Initialize Google Drive for new audio uploads
-        try {
-            initGoogleDrive();
-        } catch (error) {
-            console.warn('⚠️ Google Drive not configured. New uploads will fail.');
-            console.warn('   Please add google-credentials.json and set GOOGLE_DRIVE_FOLDER_ID in .env');
-        }
-    })
-    .catch((err) => {
-        console.error('❌ MongoDB connection error:', err);
-        process.exit(1);
-    });
+// Initialize DynamoDB
+initializeDynamoDB();
 
 /**
  * Error handling middleware
@@ -109,5 +99,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🎵 TamilBeats Server running on port ${PORT}`);
     console.log(`📁 Access the app at http://localhost:${PORT}`);
+    console.log(`☁️  Using AWS DynamoDB (Region: ${process.env.AWS_REGION})`);
+    console.log(`☁️  Using AWS S3 Bucket: ${process.env.S3_BUCKET}`);
 });
-

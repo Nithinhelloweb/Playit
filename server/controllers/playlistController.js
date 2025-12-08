@@ -1,5 +1,5 @@
-const Playlist = require('../models/Playlist');
-const Song = require('../models/Song');
+const Playlist = require('../models/dynamodb/Playlist');
+const Song = require('../models/dynamodb/Song');
 
 /**
  * Create new playlist
@@ -17,11 +17,15 @@ const createPlaylist = async (req, res) => {
         const playlist = await Playlist.create({
             name,
             description: description || '',
-            user: req.user._id,
-            songs: []
+            userId: req.user.userId
         });
 
-        res.status(201).json(playlist);
+        // Add _id for backward compatibility
+        res.status(201).json({
+            ...playlist,
+            _id: playlist.playlistId,
+            user: playlist.userId
+        });
     } catch (error) {
         console.error('Create playlist error:', error);
         res.status(500).json({ message: 'Error creating playlist' });
@@ -35,11 +39,20 @@ const createPlaylist = async (req, res) => {
  */
 const getUserPlaylists = async (req, res) => {
     try {
-        const playlists = await Playlist.find({ user: req.user._id })
-            .populate('songs')
-            .sort({ createdAt: -1 });
+        const playlists = await Playlist.findByUser(req.user.userId);
 
-        res.json(playlists);
+        // Map to include _id for backward compatibility
+        const playlistsWithId = playlists.map(playlist => ({
+            ...playlist,
+            _id: playlist.playlistId,
+            user: playlist.userId,
+            songs: playlist.songs.map(song => ({
+                ...song,
+                _id: song.songId
+            }))
+        }));
+
+        res.json(playlistsWithId);
     } catch (error) {
         console.error('Get playlists error:', error);
         res.status(500).json({ message: 'Error fetching playlists' });
@@ -53,18 +66,27 @@ const getUserPlaylists = async (req, res) => {
  */
 const getPlaylistById = async (req, res) => {
     try {
-        const playlist = await Playlist.findById(req.params.id).populate('songs');
+        const playlist = await Playlist.findById(req.params.id);
 
         if (!playlist) {
             return res.status(404).json({ message: 'Playlist not found' });
         }
 
         // Check if user owns the playlist
-        if (playlist.user.toString() !== req.user._id.toString()) {
+        if (playlist.userId !== req.user.userId) {
             return res.status(403).json({ message: 'Not authorized to access this playlist' });
         }
 
-        res.json(playlist);
+        // Add _id for backward compatibility
+        res.json({
+            ...playlist,
+            _id: playlist.playlistId,
+            user: playlist.userId,
+            songs: playlist.songs.map(song => ({
+                ...song,
+                _id: song.songId
+            }))
+        });
     } catch (error) {
         console.error('Get playlist error:', error);
         res.status(500).json({ message: 'Error fetching playlist' });
@@ -97,23 +119,28 @@ const addSongToPlaylist = async (req, res) => {
         }
 
         // Check ownership
-        if (playlist.user.toString() !== req.user._id.toString()) {
+        if (playlist.userId !== req.user.userId) {
             return res.status(403).json({ message: 'Not authorized to modify this playlist' });
         }
 
-        // Check if song already in playlist
-        if (playlist.songs.includes(songId)) {
-            return res.status(400).json({ message: 'Song already in playlist' });
-        }
+        // Add song with denormalized data
+        const updatedPlaylist = await Playlist.addSong(req.params.id, song);
 
-        // Add song
-        playlist.songs.push(songId);
-        await playlist.save();
-
-        const updatedPlaylist = await Playlist.findById(playlist._id).populate('songs');
-        res.json(updatedPlaylist);
+        // Add _id for backward compatibility
+        res.json({
+            ...updatedPlaylist,
+            _id: updatedPlaylist.playlistId,
+            user: updatedPlaylist.userId,
+            songs: updatedPlaylist.songs.map(s => ({
+                ...s,
+                _id: s.songId
+            }))
+        });
     } catch (error) {
         console.error('Add song to playlist error:', error);
+        if (error.message === 'Song already in playlist') {
+            return res.status(400).json({ message: error.message });
+        }
         res.status(500).json({ message: 'Error adding song to playlist' });
     }
 };
@@ -133,16 +160,23 @@ const removeSongFromPlaylist = async (req, res) => {
         }
 
         // Check ownership
-        if (playlist.user.toString() !== req.user._id.toString()) {
+        if (playlist.userId !== req.user.userId) {
             return res.status(403).json({ message: 'Not authorized to modify this playlist' });
         }
 
         // Remove song
-        playlist.songs = playlist.songs.filter(s => s.toString() !== songId);
-        await playlist.save();
+        const updatedPlaylist = await Playlist.removeSong(id, songId);
 
-        const updatedPlaylist = await Playlist.findById(playlist._id).populate('songs');
-        res.json(updatedPlaylist);
+        // Add _id for backward compatibility
+        res.json({
+            ...updatedPlaylist,
+            _id: updatedPlaylist.playlistId,
+            user: updatedPlaylist.userId,
+            songs: updatedPlaylist.songs.map(s => ({
+                ...s,
+                _id: s.songId
+            }))
+        });
     } catch (error) {
         console.error('Remove song from playlist error:', error);
         res.status(500).json({ message: 'Error removing song from playlist' });
@@ -164,17 +198,26 @@ const updatePlaylist = async (req, res) => {
         }
 
         // Check ownership
-        if (playlist.user.toString() !== req.user._id.toString()) {
+        if (playlist.userId !== req.user.userId) {
             return res.status(403).json({ message: 'Not authorized to modify this playlist' });
         }
 
-        if (name) playlist.name = name;
-        if (description !== undefined) playlist.description = description;
+        // Update playlist
+        const updatedPlaylist = await Playlist.update(req.params.id, {
+            name,
+            description
+        });
 
-        await playlist.save();
-
-        const updatedPlaylist = await Playlist.findById(playlist._id).populate('songs');
-        res.json(updatedPlaylist);
+        // Add _id for backward compatibility
+        res.json({
+            ...updatedPlaylist,
+            _id: updatedPlaylist.playlistId,
+            user: updatedPlaylist.userId,
+            songs: updatedPlaylist.songs.map(s => ({
+                ...s,
+                _id: s.songId
+            }))
+        });
     } catch (error) {
         console.error('Update playlist error:', error);
         res.status(500).json({ message: 'Error updating playlist' });
@@ -194,11 +237,11 @@ const deletePlaylist = async (req, res) => {
         }
 
         // Check ownership
-        if (playlist.user.toString() !== req.user._id.toString()) {
+        if (playlist.userId !== req.user.userId) {
             return res.status(403).json({ message: 'Not authorized to delete this playlist' });
         }
 
-        await Playlist.findByIdAndDelete(req.params.id);
+        await Playlist.delete(req.params.id);
         res.json({ message: 'Playlist deleted successfully' });
     } catch (error) {
         console.error('Delete playlist error:', error);

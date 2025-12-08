@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const User = require('../models/dynamodb/User');
 
 /**
  * Protect routes - verify JWT token
@@ -17,12 +17,16 @@ const protect = async (req, res, next) => {
             // Verify token
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-            // Get user from token and attach to request (exclude password)
-            req.user = await User.findById(decoded.id).select('-password');
+            // Get user from token (exclude password)
+            const user = await User.findById(decoded.id);
 
-            if (!req.user) {
+            if (!user) {
                 return res.status(401).json({ message: 'User not found' });
             }
+
+            // Attach user to request (exclude password)
+            const { password, ...userWithoutPassword } = user;
+            req.user = { ...userWithoutPassword, _id: user.userId }; // Add _id for backward compatibility
 
             next();
         } catch (error) {

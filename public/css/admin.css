@@ -557,4 +557,299 @@ input[type="file"]:hover+.file-name {
     .form-row {
         grid-template-columns: 1fr;
     }
+}/* ========================================
+   ADMIN ALBUM COVERS - Full Implementation
+   Add this to admin.css
+   ======================================== */
+
+/* Albums Section */
+.albums-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+    border: 1px solid var(--border-color);
+}
+
+.albums-section .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.albums-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.album-count {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Album Grid */
+.album-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+}
+
+/* Album Card */
+.admin-album-card {
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.admin-album-card:hover {
+    border-color: var(--primary-purple);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Album Cover Preview */
+.album-cover-preview {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm);
+    background: var(--bg-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--spacing-sm);
+    overflow: hidden;
+    position: relative;
+}
+
+.album-cover-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.album-cover-preview svg {
+    width: 60px;
+    height: 60px;
+    opacity: 0.3;
+    color: var(--text-secondary);
+}
+
+/* Album Cover Overlay (shows on hover) */
+.album-cover-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.admin-album-card:hover .album-cover-overlay {
+    opacity: 1;
+}
+
+/* Album Info */
+.album-card-info {
+    padding: var(--spacing-xs) 0;
+}
+
+.album-card-name {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+}
+
+.album-card-artist {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.album-card-meta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+/* Album Actions */
+.album-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+}
+
+.btn-upload-cover,
+.btn-remove-cover {
+    flex: 1;
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+.btn-upload-cover {
+    background: var(--primary-gradient);
+    border: none;
+    color: white;
+}
+
+.btn-upload-cover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.btn-remove-cover {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.btn-remove-cover:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.btn-upload-cover svg,
+.btn-remove-cover svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Hidden file input */
+.album-cover-input {
+    display: none;
+}
+
+/* Loading State */
+.admin-album-card.uploading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.admin-album-card.uploading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(139, 92, 246, 0.2);
+    border-top-color: var(--primary-purple);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+/* Empty State */
+.albums-empty {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--text-secondary);
+}
+
+.albums-empty svg {
+    width: 64px;
+    height: 64px;
+    opacity: 0.3;
+    margin-bottom: var(--spacing-sm);
+}
+
+.albums-empty p {
+    font-size: 1rem;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+/* Tablet */
+@media screen and (max-width: 1024px) {
+    .album-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: var(--spacing-sm);
+    }
+}
+
+/* Mobile */
+@media screen and (max-width: 768px) {
+    .albums-section {
+        padding: var(--spacing-md);
+    }
+
+    .album-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: var(--spacing-sm);
+    }
+
+    .admin-album-card {
+        padding: var(--spacing-sm);
+    }
+
+    .album-card-name {
+        font-size: 0.875rem;
+    }
+
+    .album-card-artist {
+        font-size: 0.75rem;
+    }
+}
+
+/* Small Mobile */
+@media screen and (max-width: 480px) {
+    .album-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .album-actions {
+        flex-direction: column;
+    }
+
+    .btn-upload-cover,
+    .btn-remove-cover {
+        width: 100%;
+    }
+}
+
+/* Ensure buttons are touch-friendly */
+@media (hover: none) and (pointer: coarse) {
+
+    .btn-upload-cover,
+    .btn-remove-cover {
+        min-height: 44px;
+    }
 }

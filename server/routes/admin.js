@@ -5,8 +5,7 @@ const {
     editSong,
     deleteSong,
     getAllUsers,
-    deleteUser,
-    recalculateDurations
+    deleteUser
 } = require('../controllers/adminController');
 const { protect, admin } = require('../middleware/auth');
 
@@ -31,8 +30,5 @@ router.get('/users', protect, admin, getAllUsers);
 
 // DELETE /api/admin/users/:id - Delete user
 router.delete('/users/:id', protect, admin, deleteUser);
-
-// POST /api/admin/recalculate-durations - Recalculate all song durations
-router.post('/recalculate-durations', protect, admin, recalculateDurations);
 
 module.exports = router;

@@ -1,5 +1,5 @@
-const User = require('../models/User');
-const Song = require('../models/Song');
+const User = require('../models/dynamodb/User');
+const Song = require('../models/dynamodb/Song');
 
 /**
  * Add song to favorites
@@ -17,18 +17,20 @@ const addToFavorites = async (req, res) => {
         }
 
         // Get user
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.user.userId);
 
         // Check if already in favorites
-        if (user.favorites.includes(songId)) {
+        if (user.favorites && user.favorites.includes(songId)) {
             return res.status(400).json({ message: 'Song already in favorites' });
         }
 
         // Add to favorites
-        user.favorites.push(songId);
-        await user.save();
+        const favorites = user.favorites || [];
+        favorites.push(songId);
 
-        res.json({ message: 'Added to favorites', favorites: user.favorites });
+        await User.update(user.userId, { favorites });
+
+        res.json({ message: 'Added to favorites', favorites });
     } catch (error) {
         console.error('Add to favorites error:', error);
         res.status(500).json({ message: 'Error adding to favorites' });
@@ -45,13 +47,14 @@ const removeFromFavorites = async (req, res) => {
         const songId = req.params.songId;
 
         // Get user
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.user.userId);
 
         // Remove from favorites
-        user.favorites = user.favorites.filter(id => id.toString() !== songId);
-        await user.save();
+        const favorites = (user.favorites || []).filter(id => id !== songId);
 
-        res.json({ message: 'Removed from favorites', favorites: user.favorites });
+        await User.update(user.userId, { favorites });
+
+        res.json({ message: 'Removed from favorites', favorites });
     } catch (error) {
         console.error('Remove from favorites error:', error);
         res.status(500).json({ message: 'Error removing from favorites' });
@@ -65,8 +68,22 @@ const removeFromFavorites = async (req, res) => {
  */
 const getFavorites = async (req, res) => {
     try {
-        const user = await User.findById(req.user._id).populate('favorites');
-        res.json(user.favorites);
+        const user = await User.findById(req.user.userId);
+        const favoriteIds = user.favorites || [];
+
+        // Fetch all favorite songs
+        const favoriteSongs = [];
+        for (const songId of favoriteIds) {
+            const song = await Song.findById(songId);
+            if (song) {
+                favoriteSongs.push({
+                    ...song,
+                    _id: song.songId
+                });
+            }
+        }
+
+        res.json(favoriteSongs);
     } catch (error) {
         console.error('Get favorites error:', error);
         res.status(500).json({ message: 'Error fetching favorites' });

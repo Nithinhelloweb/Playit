@@ -1,16 +1,17 @@
-const Song = require('../models/Song');
-const User = require('../models/User');
+const Song = require('../models/dynamodb/Song');
+const User = require('../models/dynamodb/User');
 const multer = require('multer');
-const { getGridFSBucket } = require('../utils/gridfs');
-const { Readable } = require('stream');
+const { uploadFile, deleteFile } = require('../config/s3');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegStatic = require('ffmpeg-static');
+const ffprobeStatic = require('ffprobe-static');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Set FFmpeg path
+// Set FFmpeg and FFprobe paths
 ffmpeg.setFfmpegPath(ffmpegStatic);
+ffmpeg.setFfprobePath(ffprobeStatic.path);
 
 // Configure multer to use memory storage (buffer)
 const storage = multer.memoryStorage();
@@ -28,12 +29,9 @@ const upload = multer({
         cb(null, true);
     },
     limits: {
-        fileSize: 100 * 1024 * 1024 // 100MB max file size (FLAC files can be larger)
+        fileSize: 100 * 1024 * 1024 // 100MB max file size
     }
 });
-
-// convertToFlac function removed
-
 
 /**
  * Helper function to get audio duration from buffer using ffmpeg
@@ -83,7 +81,7 @@ const getAudioDuration = async (buffer, mimetype) => {
  * Upload new song
  * POST /api/admin/upload
  * Requires admin authentication
- * Audio files are stored in MongoDB GridFS
+ * Audio files are stored in S3
  */
 const uploadSong = async (req, res) => {
     try {
@@ -97,62 +95,48 @@ const uploadSong = async (req, res) => {
             return res.status(400).json({ message: 'Title and artist are required' });
         }
 
-        // Upload to GridFS
-        console.log(`Uploading ${req.file.originalname} to GridFS...`);
+        // Upload to S3
+        console.log(`Uploading ${req.file.originalname} to S3...`);
 
-        const bucket = getGridFSBucket();
-        if (!bucket) {
-            return res.status(500).json({ message: 'GridFS not initialized' });
-        }
+        const s3Key = `songs/${Date.now()}-${req.file.originalname}`;
 
-        const filename = `${Date.now()}-${req.file.originalname}`;
-
-        // Create upload stream
-        const uploadStream = bucket.openUploadStream(filename, {
-            contentType: req.file.mimetype,
-            metadata: {
-                originalName: req.file.originalname,
-                uploadDate: new Date()
-            }
-        });
-
-        // Write buffer to GridFS
-        uploadStream.end(req.file.buffer);
-
-        // Wait for upload to complete
-        const gridfsId = await new Promise((resolve, reject) => {
-            uploadStream.on('finish', () => {
-                console.log(`✅ File uploaded to GridFS: ${uploadStream.id}`);
-                resolve(uploadStream.id);
-            });
-            uploadStream.on('error', (error) => {
-                console.error('❌ GridFS upload error:', error);
-                reject(error);
-            });
-        });
+        const s3Url = await uploadFile(s3Key, req.file.buffer, req.file.mimetype);
+        console.log(`✅ File uploaded to S3: ${s3Url}`);
 
         // Get audio duration from file
         console.log('Calculating audio duration...');
         const duration = await getAudioDuration(req.file.buffer, req.file.mimetype);
         console.log(`✅ Duration calculated: ${duration} seconds`);
 
-        // Create song record with GridFS reference
+        // Create song record with S3 reference
         const song = await Song.create({
             title,
             artist,
             album: album || 'Unknown Album',
             duration: duration,
-            gridfsId: gridfsId,
+            s3Key: s3Key,
+            s3Url: s3Url,
             mimeType: req.file.mimetype
         });
 
-        res.status(201).json(song);
+        // Add _id for backward compatibility
+        res.status(201).json({
+            ...song,
+            _id: song.songId
+        });
     } catch (error) {
         console.error('Upload song error:', error);
-        res.status(500).json({ message: 'Error uploading song' });
+        console.error('Error details:', {
+            message: error.message,
+            code: error.code,
+            statusCode: error.$metadata?.httpStatusCode
+        });
+        res.status(500).json({
+            message: 'Error uploading song',
+            error: error.message
+        });
     }
 };
-
 
 /**
  * Edit song metadata
@@ -168,17 +152,31 @@ const editSong = async (req, res) => {
             return res.status(404).json({ message: 'Song not found' });
         }
 
-        // Update fields
-        if (title) song.title = title;
-        if (artist) song.artist = artist;
-        if (album !== undefined) song.album = album;
-        if (duration !== undefined) song.duration = duration;
+        // Update song
+        const updatedSong = await Song.update(req.params.id, {
+            title,
+            artist,
+            album,
+            duration
+        });
 
-        await song.save();
-        res.json(song);
+        // Add _id for backward compatibility
+        res.json({
+            ...updatedSong,
+            _id: updatedSong.songId
+        });
     } catch (error) {
         console.error('Edit song error:', error);
-        res.status(500).json({ message: 'Error editing song' });
+        console.error('Error details:', {
+            message: error.message,
+            code: error.code,
+            songId: req.params.id,
+            updates: req.body
+        });
+        res.status(500).json({
+            message: 'Error editing song',
+            error: error.message
+        });
     }
 };
 
@@ -194,21 +192,18 @@ const deleteSong = async (req, res) => {
             return res.status(404).json({ message: 'Song not found' });
         }
 
-        // Delete file from GridFS
-        if (song.gridfsId) {
+        // Delete file from S3
+        if (song.s3Key) {
             try {
-                const bucket = getGridFSBucket();
-                if (bucket) {
-                    await bucket.delete(song.gridfsId);
-                    console.log(`🗑️ File deleted from GridFS: ${song.gridfsId}`);
-                }
+                await deleteFile(song.s3Key);
+                console.log(`🗑️ File deleted from S3: ${song.s3Key}`);
             } catch (err) {
-                console.log('File may not exist in GridFS:', err.message);
+                console.log('Error deleting from S3:', err.message);
             }
         }
 
         // Delete from database
-        await Song.findByIdAndDelete(req.params.id);
+        await Song.delete(req.params.id);
 
         res.json({ message: 'Song deleted successfully' });
     } catch (error) {
@@ -224,8 +219,18 @@ const deleteSong = async (req, res) => {
  */
 const getAllUsers = async (req, res) => {
     try {
-        const users = await User.find().select('-password').sort({ createdAt: -1 });
-        res.json(users);
+        const users = await User.findAll();
+
+        // Remove passwords and add _id for backward compatibility
+        const usersWithoutPassword = users.map(user => {
+            const { password, ...userWithoutPassword } = user;
+            return {
+                ...userWithoutPassword,
+                _id: user.userId
+            };
+        }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        res.json(usersWithoutPassword);
     } catch (error) {
         console.error('Get users error:', error);
         res.status(500).json({ message: 'Error fetching users' });
@@ -249,83 +254,11 @@ const deleteUser = async (req, res) => {
             return res.status(403).json({ message: 'Cannot delete admin users' });
         }
 
-        await User.findByIdAndDelete(req.params.id);
+        await User.delete(req.params.id);
         res.json({ message: 'User deleted successfully' });
     } catch (error) {
         console.error('Delete user error:', error);
         res.status(500).json({ message: 'Error deleting user' });
-    }
-};
-
-/**
- * Recalculate durations for all songs
- * POST /api/admin/recalculate-durations
- * Requires admin authentication
- */
-const recalculateDurations = async (req, res) => {
-    try {
-        const songs = await Song.find({ duration: 0 });
-        console.log(`Found ${songs.length} songs with 0 duration`);
-
-        if (songs.length === 0) {
-            return res.json({ message: 'No songs need duration update', updated: 0 });
-        }
-
-        const bucket = getGridFSBucket();
-        if (!bucket) {
-            return res.status(500).json({ message: 'GridFS not initialized' });
-        }
-
-        let updated = 0;
-        let failed = 0;
-
-        for (const song of songs) {
-            try {
-                if (!song.gridfsId) {
-                    console.log(`⏭️  Skipping ${song.title} - no GridFS file`);
-                    failed++;
-                    continue;
-                }
-
-                // Download file from GridFS to buffer
-                const chunks = [];
-                const downloadStream = bucket.openDownloadStream(song.gridfsId);
-
-                await new Promise((resolve, reject) => {
-                    downloadStream.on('data', (chunk) => chunks.push(chunk));
-                    downloadStream.on('end', resolve);
-                    downloadStream.on('error', reject);
-                });
-
-                const buffer = Buffer.concat(chunks);
-
-                // Calculate duration
-                const duration = await getAudioDuration(buffer, song.mimeType);
-
-                if (duration > 0) {
-                    song.duration = duration;
-                    await song.save();
-                    console.log(`✅ Updated ${song.title}: ${duration}s`);
-                    updated++;
-                } else {
-                    console.log(`⚠️  ${song.title}: duration is 0`);
-                    failed++;
-                }
-            } catch (error) {
-                console.error(`❌ Error processing ${song.title}:`, error.message);
-                failed++;
-            }
-        }
-
-        res.json({
-            message: `Duration recalculation complete`,
-            total: songs.length,
-            updated,
-            failed
-        });
-    } catch (error) {
-        console.error('Recalculate durations error:', error);
-        res.status(500).json({ message: 'Error recalculating durations' });
     }
 };
 
@@ -335,6 +268,5 @@ module.exports = {
     editSong,
     deleteSong,
     getAllUsers,
-    deleteUser,
-    recalculateDurations
+    deleteUser
 };
