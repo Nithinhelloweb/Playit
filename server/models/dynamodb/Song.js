@@ -159,6 +159,38 @@ class Song {
 
         await execute(command);
     }
+
+    /**
+     * Update album cover for all songs with matching album name
+     * @param {string} albumName - Album name to update
+     * @param {string|null} coverUrl - Cover URL or null to remove
+     * @returns {Promise<number>} Number of songs updated
+     */
+    static async updateAlbumCover(albumName, coverUrl) {
+        const songs = await this.findAll();
+        const albumSongs = songs.filter(song => song.album === albumName);
+
+        let updateCount = 0;
+        for (const song of albumSongs) {
+            try {
+                const command = new UpdateCommand({
+                    TableName: TABLES.SONGS,
+                    Key: { songId: song.songId },
+                    UpdateExpression: 'SET coverImage = :cover, updatedAt = :updatedAt',
+                    ExpressionAttributeValues: {
+                        ':cover': coverUrl,
+                        ':updatedAt': new Date().toISOString()
+                    }
+                });
+                await execute(command);
+                updateCount++;
+            } catch (error) {
+                console.error(`Error updating cover for song ${song.songId}:`, error);
+            }
+        }
+
+        return updateCount;
+    }
 }
 
 module.exports = Song;

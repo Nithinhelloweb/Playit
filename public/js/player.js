@@ -76,6 +76,9 @@ const state = {
     currentView: 'home'
 };
 
+// Make state accessible globally for modal
+window.playerState = state;
+
 // ===== AUDIO ELEMENT =====
 const audio = document.getElementById('audioPlayer');
 audio.volume = state.volume;
@@ -1023,16 +1026,37 @@ loadInitialData();
             modalSongArtist.textContent = currentSongArtist.textContent;
         }
 
-        // Sync album art
-        const albumArt = document.getElementById('albumArt');
-        if (albumArt && modalAlbumArt) {
-            // Clone the album art content
-            modalAlbumArt.innerHTML = albumArt.innerHTML;
-        }
+        // Sync album art - show cover image if available
+        if (window.playerState && window.playerState.currentSong) {
+            const song = window.playerState.currentSong;
 
-        // Sync album name if available from current song
-        if (window.currentSong && window.currentSong.album) {
-            modalSongAlbum.textContent = window.currentSong.album;
+            // Display album cover if available
+            if (song.coverImage) {
+                modalAlbumArt.innerHTML = `<img src="${song.coverImage}" alt="Album Cover" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm);">`;
+            } else {
+                // No cover, show default SVG
+                modalAlbumArt.innerHTML = `
+                    <svg width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <path d="M9 18V5l12-2v13"></path>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <circle cx="18" cy="16" r="3"></circle>
+                    </svg>
+                `;
+            }
+
+            // Sync album name
+            if (song.album && modalSongAlbum) {
+                modalSongAlbum.textContent = song.album;
+            }
+        } else {
+            // No song playing, show default
+            modalAlbumArt.innerHTML = `
+                <svg width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+            `;
         }
 
         // Sync play/pause state

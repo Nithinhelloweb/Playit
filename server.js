@@ -10,6 +10,7 @@ const songRoutes = require('./server/routes/songs');
 const playlistRoutes = require('./server/routes/playlists');
 const favoriteRoutes = require('./server/routes/favorites');
 const adminRoutes = require('./server/routes/admin');
+const albumRoutes = require('./server/routes/albums');
 
 /**
  * Initialize Express app
@@ -43,6 +44,7 @@ app.use('/api/songs', songRoutes);
 app.use('/api/playlists', playlistRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/albums', albumRoutes);
 
 /**
  * Serve HTML pages for specific routes
