@@ -1083,6 +1083,8 @@ loadInitialData();
             } else {
                 modalRepeatBtn.classList.remove('active');
             }
+            // Sync the innerHTML to show the correct icon
+            modalRepeatBtn.innerHTML = repeatBtn.innerHTML.replace(/width=\"20\"/g, 'width="28"').replace(/height=\"20\"/g, 'height="28"');
         }
 
         // Sync favorite state
@@ -1221,21 +1223,41 @@ loadInitialData();
                 } else {
                     modalShuffleBtn.classList.remove('active');
                 }
-            }, 100);
+            }, 50);
         });
     }
 
     if (modalRepeatBtn && repeatBtn) {
         modalRepeatBtn.addEventListener('click', () => {
             repeatBtn.click();
-            // Sync state
+            // Sync state and innerHTML to show repeat mode
             setTimeout(() => {
                 if (repeatBtn.classList.contains('active')) {
                     modalRepeatBtn.classList.add('active');
                 } else {
                     modalRepeatBtn.classList.remove('active');
                 }
-            }, 100);
+                // Sync the innerHTML to show the correct icon (especially for repeat-one with "1")
+                modalRepeatBtn.innerHTML = repeatBtn.innerHTML.replace(/width=\"20\"/g, 'width="28"').replace(/height=\"20\"/g, 'height="28"');
+            }, 50);
+        });
+    }
+
+    // Skip forward 10 seconds
+    const modalSkipForwardBtn = document.getElementById('modalSkipForwardBtn');
+    const skipForwardBtn = document.getElementById('skipForwardBtn');
+    if (modalSkipForwardBtn && skipForwardBtn) {
+        modalSkipForwardBtn.addEventListener('click', () => {
+            skipForwardBtn.click();
+        });
+    }
+
+    // Skip backward 10 seconds
+    const modalSkipBackBtn = document.getElementById('modalSkipBackBtn');
+    const skipBackBtn = document.getElementById('skipBackBtn');
+    if (modalSkipBackBtn && skipBackBtn) {
+        modalSkipBackBtn.addEventListener('click', () => {
+            skipBackBtn.click();
         });
     }
 
