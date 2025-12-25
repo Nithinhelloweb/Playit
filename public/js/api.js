@@ -120,7 +120,11 @@ const API = {
         addToRecentlyPlayed: (id) => request(`/songs/recently-played/${id}`, {
             method: 'POST'
         }),
-        getRecentlyPlayed: () => request('/songs/recently-played')
+        getRecentlyPlayed: () => request('/songs/recently-played'),
+        updateOrder: (orderData) => request('/songs/reorder', {
+            method: 'PUT',
+            body: JSON.stringify({ orderData })
+        })
     },
 
     // Playlists

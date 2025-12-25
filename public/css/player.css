@@ -415,6 +415,59 @@ body {
     opacity: 1;
 }
 
+/* ===== ALBUM ART THUMBNAILS ===== */
+.song-album-art {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.song-album-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.song-album-art svg {
+    width: 24px;
+    height: 24px;
+    opacity: 0.6;
+}
+
+/* Player bar album art with image */
+.album-art.has-image {
+    overflow: hidden;
+}
+
+.album-art.has-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ===== DRAG AND DROP STYLES ===== */
+.song-item[draggable="true"] {
+    cursor: grab;
+}
+
+.song-item.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+}
+
+.song-item.drag-over {
+    border-top: 3px solid var(--primary-purple);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    margin-top: 3px;
+}
+
 /* ===== BUTTONS ===== */
 .btn-icon {
     width: 36px;
@@ -1594,7 +1647,9 @@ body {
         /* Sharper icons on retina */
         -webkit-font-smoothing: antialiased;
     }
-}/* ========================================
+}
+
+/* ========================================
    EXPANDABLE PLAYER MODAL - Full Implementation
    Add this to the end of player.css
    ======================================== */

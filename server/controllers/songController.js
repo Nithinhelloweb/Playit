@@ -234,6 +234,31 @@ const getAlbums = async (req, res) => {
     }
 };
 
+/**
+ * Update song order
+ * PUT /api/songs/reorder
+ * Requires authentication
+ */
+const updateSongOrder = async (req, res) => {
+    try {
+        const { orderData } = req.body;
+
+        if (!Array.isArray(orderData)) {
+            return res.status(400).json({ message: 'Invalid order data' });
+        }
+
+        const updateCount = await Song.updateOrder(orderData);
+
+        res.json({
+            message: 'Song order updated successfully',
+            updatedCount: updateCount
+        });
+    } catch (error) {
+        console.error('Update order error:', error);
+        res.status(500).json({ message: 'Failed to update song order' });
+    }
+};
+
 module.exports = {
     getAllSongs,
     getSongById,
@@ -242,5 +267,6 @@ module.exports = {
     downloadSong,
     addToRecentlyPlayed,
     getRecentlyPlayed,
-    getAlbums
+    getAlbums,
+    updateSongOrder
 };

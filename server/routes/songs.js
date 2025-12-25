@@ -38,6 +38,10 @@ router.post('/recently-played/:id', protect, addToRecentlyPlayed);
 // GET /api/songs/recently-played - Get recently played (protected)
 router.get('/recently-played', protect, getRecentlyPlayed);
 
+// PUT /api/songs/reorder - Update song order (admin only)
+const { admin } = require('../middleware/auth');
+router.put('/reorder', protect, admin, require('../controllers/songController').updateSongOrder);
+
 // GET /api/songs/:id - Get song details (public) - MUST BE LAST
 router.get('/:id', getSongById);
 

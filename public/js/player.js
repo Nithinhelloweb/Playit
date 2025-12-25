@@ -252,7 +252,21 @@ const renderSongList = (songs, containerId = 'songList') => {
     }
 
     container.innerHTML = songs.map((song, index) => `
-    <div class="song-item ${state.currentSong?._id === song._id ? 'playing' : ''}" data-song-id="${song._id}" data-index="${index}">
+    <div class="song-item ${state.currentSong?._id === song._id ? 'playing' : ''}" data-song-id="${song._id}" data-index="${index}" ${user.isAdmin ? 'draggable="true"' : ''}>
+      <div class="song-album-art">
+        ${song.coverImage
+            ? `<img src="${song.coverImage}" alt="${song.album || 'Album'}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+               <path d="M9 18V5l12-2v13"></path>
+               <circle cx="6" cy="18" r="3"></circle>
+               <circle cx="18" cy="16" r="3"></circle>
+             </svg>`
+            : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <path d="M9 18V5l12-2v13"></path>
+               <circle cx="6" cy="18" r="3"></circle>
+               <circle cx="18" cy="16" r="3"></circle>
+             </svg>`}
+      </div>
       <span class="song-index">${index + 1}</span>
       <div class="song-info">
         <p class="song-title">${song.title}</p>
@@ -302,6 +316,17 @@ const renderSongList = (songs, containerId = 'songList') => {
             await showAddToPlaylistMenu(songId, btn);
         });
     });
+
+    // Drag and drop event listeners (only for admin users in main song list)
+    if (containerId === 'songList' && user.isAdmin) {
+        container.querySelectorAll('.song-item').forEach(item => {
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragover', handleDragOver);
+            item.addEventListener('drop', handleDrop);
+            item.addEventListener('dragend', handleDragEnd);
+            item.addEventListener('dragleave', handleDragLeave);
+        });
+    }
 };
 
 // ===== LOADING STATE HELPERS =====
@@ -311,6 +336,77 @@ const showLoading = () => {
     document.querySelector('.pause-icon').classList.add('hidden');
     document.querySelector('.loading-icon').classList.remove('hidden');
     document.getElementById('albumArt').classList.add('rotating-paused');
+};
+
+// ===== DRAG AND DROP HANDLERS =====
+let draggedElement = null;
+let draggedIndex = null;
+
+const handleDragStart = function (e) {
+    draggedElement = this;
+    draggedIndex = parseInt(this.dataset.index);
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.innerHTML);
+};
+
+const handleDragOver = function (e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const targetIndex = parseInt(this.dataset.index);
+    if (this !== draggedElement && targetIndex !== draggedIndex) {
+        this.classList.add('drag-over');
+    }
+    return false;
+};
+
+const handleDragLeave = function (e) {
+    this.classList.remove('drag-over');
+};
+
+const handleDrop = function (e) {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const targetIndex = parseInt(this.dataset.index);
+
+    if (draggedIndex !== targetIndex && draggedElement !== this) {
+        // Reorder the array
+        const draggedSong = state.allSongs[draggedIndex];
+        state.allSongs.splice(draggedIndex, 1);
+        state.allSongs.splice(targetIndex, 0, draggedSong);
+
+        // Save new order to backend
+        saveSongOrder();
+
+        // Re-render the list
+        renderSongList(state.allSongs);
+        document.getElementById('songCount').textContent = `${state.allSongs.length} songs`;
+    }
+
+    return false;
+};
+
+const handleDragEnd = function (e) {
+    // Remove all drag-related classes
+    document.querySelectorAll('.song-item').forEach(item => {
+        item.classList.remove('dragging', 'drag-over');
+    });
+};
+
+const saveSongOrder = async () => {
+    const orderData = state.allSongs.map((song, index) => ({
+        songId: song._id,
+        sortOrder: index
+    }));
+
+    try {
+        await API.songs.updateOrder(orderData);
+        console.log('✅ Song order saved');
+    } catch (error) {
+        console.error('Failed to save song order:', error);
+    }
 };
 
 const hideLoading = () => {
@@ -410,7 +506,19 @@ const updatePlayerUI = () => {
             favoriteBtn.querySelector('svg').setAttribute('fill', 'none');
         }
 
+        // Update album art in player bar
         const albumArt = document.getElementById('albumArt');
+        if (state.currentSong.coverImage) {
+            albumArt.innerHTML = `<img src="${state.currentSong.coverImage}" alt="Album Art" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+            albumArt.classList.add('has-image');
+        } else {
+            albumArt.innerHTML = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+            </svg>`;
+            albumArt.classList.remove('has-image');
+        }
         albumArt.classList.remove('rotating-paused');
         albumArt.classList.add('rotating');
     }
@@ -879,7 +987,9 @@ const renderAlbums = (albums) => {
 
     container.innerHTML = albums.map((album, index) => `
     <div class="album-card" data-album-index="${index}">
-      <div class="album-cover" style="background: ${album.coverImage ? `url(${album.coverImage})` : gradients[index % gradients.length]}">
+      <div class="album-cover" style="${album.coverImage
+            ? `background-image: url('${album.coverImage}'); background-size: cover; background-position: center;`
+            : `background: ${gradients[index % gradients.length]};`}">
         <div class="album-play-overlay">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="white">
             <polygon points="5 3 19 12 5 21 5 3"></polygon>

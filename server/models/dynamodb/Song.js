@@ -16,6 +16,12 @@ class Song {
         const songId = uuidv4();
         const now = new Date().toISOString();
 
+        // Get max sortOrder
+        const allSongs = await this.findAll();
+        const maxOrder = allSongs.length > 0
+            ? Math.max(...allSongs.map(s => s.sortOrder || 0))
+            : -1;
+
         const song = {
             songId,
             title: songData.title,
@@ -26,6 +32,7 @@ class Song {
             s3Url: songData.s3Url,
             mimeType: songData.mimeType || 'audio/mpeg',
             coverImage: songData.coverImage || null,
+            sortOrder: maxOrder + 1,
             createdAt: now,
             updatedAt: now
         };
@@ -51,8 +58,13 @@ class Song {
         const result = await execute(command);
         const songs = result.Items || [];
 
-        // Sort by createdAt descending (newest first)
-        return songs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        // Sort by sortOrder, fallback to createdAt
+        return songs.sort((a, b) => {
+            const orderA = a.sortOrder !== undefined ? a.sortOrder : 999999;
+            const orderB = b.sortOrder !== undefined ? b.sortOrder : 999999;
+            if (orderA !== orderB) return orderA - orderB;
+            return new Date(b.createdAt) - new Date(a.createdAt);
+        });
     }
 
     /**
@@ -189,6 +201,32 @@ class Song {
             }
         }
 
+        return updateCount;
+    }
+
+    /**
+     * Update sort order for multiple songs
+     * @param {Array} orderData - Array of {songId, sortOrder}
+     */
+    static async updateOrder(orderData) {
+        let updateCount = 0;
+        for (const item of orderData) {
+            try {
+                const command = new UpdateCommand({
+                    TableName: TABLES.SONGS,
+                    Key: { songId: item.songId },
+                    UpdateExpression: 'SET sortOrder = :order, updatedAt = :updatedAt',
+                    ExpressionAttributeValues: {
+                        ':order': item.sortOrder,
+                        ':updatedAt': new Date().toISOString()
+                    }
+                });
+                await execute(command);
+                updateCount++;
+            } catch (error) {
+                console.error(`Error updating order for song ${item.songId}:`, error);
+            }
+        }
         return updateCount;
     }
 }
