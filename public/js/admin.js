@@ -188,14 +188,23 @@ uploadForm.addEventListener('submit', async (e) => {
     formData.append('artist', artist);
     formData.append('album', album);
 
-    // Disable button
+    // Check if file is MPEG and needs conversion
+    const isMpeg = file.name.match(/\.(mpeg|mpg|mp4)$/i);
+
+    // Disable button with appropriate message
     uploadBtn.disabled = true;
-    uploadBtn.innerHTML = '<span>Uploading...</span>';
+    if (isMpeg) {
+        uploadBtn.innerHTML = '<span>Converting MPEG to MP3...</span>';
+    } else {
+        uploadBtn.innerHTML = '<span>Uploading...</span>';
+    }
 
     try {
         await API.admin.uploadSong(formData);
 
-        successDiv.textContent = 'Song uploaded successfully!';
+        successDiv.textContent = isMpeg
+            ? 'Song converted and uploaded successfully!'
+            : 'Song uploaded successfully!';
         successDiv.classList.add('show');
 
         uploadForm.reset();

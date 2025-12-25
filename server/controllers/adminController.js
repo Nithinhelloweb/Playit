@@ -21,10 +21,11 @@ const upload = multer({
     fileFilter: function (req, file, cb) {
         const allowedMimes = [
             'audio/mpeg', 'audio/mp3', 'audio/m4a', 'audio/wav',
-            'audio/x-m4a', 'audio/flac', 'audio/x-flac'
+            'audio/x-m4a', 'audio/flac', 'audio/x-flac',
+            'video/mpeg', 'video/mp4' // MPEG files to be converted to MP3
         ];
         if (!allowedMimes.includes(file.mimetype)) {
-            return cb(new Error('Only audio files are allowed (MP3, WAV, M4A, FLAC)'));
+            return cb(new Error('Only audio files are allowed (MP3, WAV, M4A, FLAC, MPEG)'));
         }
         cb(null, true);
     },
@@ -78,6 +79,73 @@ const getAudioDuration = async (buffer, mimetype) => {
 };
 
 /**
+ * Helper function to convert MPEG video to MP3 audio
+ */
+const convertToMp3 = async (buffer, originalFilename) => {
+    return new Promise((resolve, reject) => {
+        const tempInputFile = path.join(os.tmpdir(), `input-${Date.now()}.tmp`);
+        const tempOutputFile = path.join(os.tmpdir(), `output-${Date.now()}.mp3`);
+
+        try {
+            // Write buffer to temporary input file
+            fs.writeFileSync(tempInputFile, buffer);
+            console.log('🔄 Converting MPEG to MP3...');
+
+            // Convert using ffmpeg
+            ffmpeg(tempInputFile)
+                .toFormat('mp3')
+                .audioBitrate('192k') // Good quality MP3
+                .on('end', () => {
+                    try {
+                        // Read the converted file
+                        const mp3Buffer = fs.readFileSync(tempOutputFile);
+
+                        // Clean up temp files
+                        try {
+                            fs.unlinkSync(tempInputFile);
+                            fs.unlinkSync(tempOutputFile);
+                        } catch (cleanupErr) {
+                            console.error('Error cleaning up temp files:', cleanupErr);
+                        }
+
+                        console.log('✅ Conversion to MP3 completed');
+
+                        // Return converted buffer and new filename
+                        const newFilename = originalFilename.replace(/\.(mpeg|mpg|mp4)$/i, '.mp3');
+                        resolve({
+                            buffer: mp3Buffer,
+                            filename: newFilename,
+                            mimetype: 'audio/mpeg'
+                        });
+                    } catch (readErr) {
+                        reject(new Error('Failed to read converted file: ' + readErr.message));
+                    }
+                })
+                .on('error', (err) => {
+                    // Clean up temp files
+                    try {
+                        if (fs.existsSync(tempInputFile)) fs.unlinkSync(tempInputFile);
+                        if (fs.existsSync(tempOutputFile)) fs.unlinkSync(tempOutputFile);
+                    } catch (cleanupErr) {
+                        console.error('Error cleaning up temp files:', cleanupErr);
+                    }
+                    reject(new Error('Conversion failed: ' + err.message));
+                })
+                .save(tempOutputFile);
+        } catch (error) {
+            // Clean up temp files if they exist
+            try {
+                if (fs.existsSync(tempInputFile)) fs.unlinkSync(tempInputFile);
+                if (fs.existsSync(tempOutputFile)) fs.unlinkSync(tempOutputFile);
+            } catch (cleanupErr) {
+                console.error('Error cleaning up temp files:', cleanupErr);
+            }
+            reject(new Error('Conversion setup failed: ' + error.message));
+        }
+    });
+};
+
+/**
  * Upload new song
  * POST /api/admin/upload
  * Requires admin authentication
@@ -95,17 +163,41 @@ const uploadSong = async (req, res) => {
             return res.status(400).json({ message: 'Title and artist are required' });
         }
 
+        // Check if file is MPEG and needs conversion
+        let fileBuffer = req.file.buffer;
+        let fileName = req.file.originalname;
+        let fileMimeType = req.file.mimetype;
+
+        const isMpeg = ['video/mpeg', 'video/mp4'].includes(req.file.mimetype);
+
+        if (isMpeg) {
+            console.log(`📼 MPEG file detected: ${req.file.originalname}`);
+            try {
+                const converted = await convertToMp3(req.file.buffer, req.file.originalname);
+                fileBuffer = converted.buffer;
+                fileName = converted.filename;
+                fileMimeType = converted.mimetype;
+                console.log(`✅ Converted to: ${fileName}`);
+            } catch (conversionError) {
+                console.error('Conversion error:', conversionError);
+                return res.status(500).json({
+                    message: 'Failed to convert MPEG to MP3',
+                    error: conversionError.message
+                });
+            }
+        }
+
         // Upload to S3
-        console.log(`Uploading ${req.file.originalname} to S3...`);
+        console.log(`Uploading ${fileName} to S3...`);
 
-        const s3Key = `songs/${Date.now()}-${req.file.originalname}`;
+        const s3Key = `songs/${Date.now()}-${fileName}`;
 
-        const s3Url = await uploadFile(s3Key, req.file.buffer, req.file.mimetype);
+        const s3Url = await uploadFile(s3Key, fileBuffer, fileMimeType);
         console.log(`✅ File uploaded to S3: ${s3Url}`);
 
         // Get audio duration from file
         console.log('Calculating audio duration...');
-        const duration = await getAudioDuration(req.file.buffer, req.file.mimetype);
+        const duration = await getAudioDuration(fileBuffer, fileMimeType);
         console.log(`✅ Duration calculated: ${duration} seconds`);
 
         // Create song record with S3 reference
@@ -116,7 +208,7 @@ const uploadSong = async (req, res) => {
             duration: duration,
             s3Key: s3Key,
             s3Url: s3Url,
-            mimeType: req.file.mimetype
+            mimeType: fileMimeType
         });
 
         // Add _id for backward compatibility
