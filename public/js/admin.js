@@ -21,11 +21,14 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 // State
 let allSongs = [];
 let allUsers = [];
+let filteredSongs = [];
+let filteredUsers = [];
 
 // ===== LOAD DATA =====
 const loadSongs = async () => {
     try {
         allSongs = await API.songs.getAll();
+        filteredSongs = allSongs;
         renderSongsTable();
         document.getElementById('songCount').textContent = `${allSongs.length} songs`;
     } catch (error) {
@@ -36,6 +39,7 @@ const loadSongs = async () => {
 const loadUsers = async () => {
     try {
         allUsers = await API.admin.getUsers();
+        filteredUsers = allUsers;
         renderUsersTable();
         document.getElementById('userCount').textContent = `${allUsers.length} users`;
     } catch (error) {
@@ -45,43 +49,82 @@ const loadUsers = async () => {
 
 // ===== RENDER TABLES =====
 const renderSongsTable = () => {
-    const tbody = document.getElementById('songsTableBody');
+    const container = document.getElementById('songsContainer');
 
-    if (allSongs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No songs uploaded yet</td></tr>';
+    if (filteredSongs.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-secondary);">No songs found</p>';
         return;
     }
 
-    tbody.innerHTML = allSongs.map(song => `
-    <tr>
-      <td><strong>${song.title}</strong></td>
-      <td>${song.artist}</td>
-      <td>${song.album || 'Unknown'}</td>
-      <td>${formatTime(song.duration)}</td>
-      <td>
-        <button class="btn-edit" onclick="editSong('${song._id}')">Edit</button>
-        <button class="btn-delete" onclick="deleteSong('${song._id}', '${song.title}')">Delete</button>
-      </td>
-    </tr>
-  `).join('');
+    // Group songs by album
+    const groupedSongs = {};
+    filteredSongs.forEach(song => {
+        const albumName = song.album || 'Unknown Album';
+        if (!groupedSongs[albumName]) {
+            groupedSongs[albumName] = [];
+        }
+        groupedSongs[albumName].push(song);
+    });
+
+    // Sort album names alphabetically
+    const sortedAlbums = Object.keys(groupedSongs).sort();
+
+    // Generate HTML for grouped songs
+    let html = '';
+    sortedAlbums.forEach(albumName => {
+        const songs = groupedSongs[albumName];
+        html += `
+            <div class="album-group">
+                <div class="album-group-header">
+                    <span class="album-group-title">📀 ${albumName}</span>
+                    <span class="album-group-count">${songs.length} ${songs.length === 1 ? 'song' : 'songs'}</span>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Artist</th>
+                            <th>Duration</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="album-group-songs">
+                        ${songs.map(song => `
+                            <tr>
+                                <td><strong>${song.title}</strong></td>
+                                <td>${song.artist}</td>
+                                <td>${formatTime(song.duration)}</td>
+                                <td>
+                                    <button class="btn-edit" onclick="editSong('${song.songId}')">Edit</button>
+                                    <button class="btn-delete" onclick="deleteSong('${song.songId}', '${song.title.replace(/'/g, "\\'")}')">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
 };
 
 const renderUsersTable = () => {
     const tbody = document.getElementById('usersTableBody');
 
-    if (allUsers.length === 0) {
+    if (filteredUsers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No users found</td></tr>';
         return;
     }
 
-    tbody.innerHTML = allUsers.map(u => `
+    tbody.innerHTML = filteredUsers.map(u => `
     <tr>
       <td><strong>${u.name}</strong></td>
       <td>${u.email}</td>
       <td>${u.isAdmin ? '<span class="admin-badge">Admin</span>' : '<span class="user-badge">User</span>'}</td>
       <td>${new Date(u.createdAt).toLocaleDateString()}</td>
       <td>
-        ${!u.isAdmin ? `<button class="btn-delete" onclick="deleteUser('${u._id}', '${u.name}')">Delete</button>` : ''}
+        ${!u.isAdmin ? `<button class="btn-delete" onclick="deleteUser('${u.userId}', '${u.name.replace(/'/g, "\\'")}')">Delete</button>` : ''}
       </td>
     </tr>
   `).join('');
@@ -91,10 +134,22 @@ const renderUsersTable = () => {
 const uploadForm = document.getElementById('uploadForm');
 const songFileInput = document.getElementById('songFile');
 
-// Update file name display
+// Update file name display and auto-fill song title
 songFileInput.addEventListener('change', (e) => {
-    const fileName = e.target.files[0]?.name || 'No file selected';
+    const file = e.target.files[0];
+    const fileName = file?.name || 'No file selected';
     document.querySelector('.file-name').textContent = fileName;
+
+    // Auto-fill song title with filename up to first dot
+    if (file) {
+        const nameWithoutExtension = file.name.split('.')[0]; // Get text before first dot
+        const songTitleInput = document.getElementById('songTitle');
+
+        // Only auto-fill if the title field is empty
+        if (!songTitleInput.value.trim()) {
+            songTitleInput.value = nameWithoutExtension;
+        }
+    }
 });
 
 uploadForm.addEventListener('submit', async (e) => {
@@ -231,6 +286,45 @@ const formatTime = (seconds) => {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
+
+// ===== SEARCH FUNCTIONALITY =====
+const songSearchInput = document.getElementById('songSearch');
+const userSearchInput = document.getElementById('userSearch');
+
+// Song search
+songSearchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+
+    if (!query) {
+        filteredSongs = allSongs;
+    } else {
+        filteredSongs = allSongs.filter(song =>
+            song.title.toLowerCase().includes(query) ||
+            song.artist.toLowerCase().includes(query) ||
+            (song.album && song.album.toLowerCase().includes(query))
+        );
+    }
+
+    renderSongsTable();
+    document.getElementById('songCount').textContent = `${filteredSongs.length} of ${allSongs.length} songs`;
+});
+
+// User search
+userSearchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+
+    if (!query) {
+        filteredUsers = allUsers;
+    } else {
+        filteredUsers = allUsers.filter(user =>
+            user.name.toLowerCase().includes(query) ||
+            user.email.toLowerCase().includes(query)
+        );
+    }
+
+    renderUsersTable();
+    document.getElementById('userCount').textContent = `${filteredUsers.length} of ${allUsers.length} users`;
+});
 
 // ===== INITIALIZE =====
 loadSongs();
