@@ -16,11 +16,24 @@ const storage = multer.memoryStorage();
 const userUpload = multer({
     storage: storage,
     fileFilter: (req, file, cb) => {
-        const allowedMimes = ['audio/mpeg', 'audio/mp3', 'audio/m4a', 'audio/wav', 'audio/x-m4a', 'audio/flac'];
-        if (!allowedMimes.includes(file.mimetype)) {
-            return cb(new Error('Only audio files are allowed (MP3, WAV, M4A, FLAC)'));
+        // Expanded MIME types for audio files
+        const allowedMimes = [
+            'audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/m4a', 'audio/x-m4a',
+            'audio/wav', 'audio/wave', 'audio/x-wav', 'audio/flac', 'audio/x-flac',
+            'audio/ogg', 'audio/aac', 'audio/aiff', 'audio/x-aiff',
+            'audio/webm', 'audio/3gpp', 'audio/3gpp2', 'audio/amr',
+            'application/octet-stream' // Allow unknown binary (check extension)
+        ];
+
+        // Also check file extension
+        const allowedExts = ['.mp3', '.m4a', '.wav', '.flac', '.ogg', '.aac', '.aiff', '.webm', '.3gp', '.amr'];
+        const ext = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+
+        if (allowedMimes.includes(file.mimetype) || allowedExts.includes(ext)) {
+            cb(null, true);
+        } else {
+            cb(new Error(`Unsupported file format. Allowed: MP3, M4A, WAV, FLAC, OGG, AAC, AIFF, WebM`));
         }
-        cb(null, true);
     },
     limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit for users
 });

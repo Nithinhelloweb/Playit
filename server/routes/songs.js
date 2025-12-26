@@ -43,7 +43,19 @@ router.post('/recently-played/:id', protect, addToRecentlyPlayed);
 router.get('/recently-played', protect, getRecentlyPlayed);
 
 // POST /api/songs/upload - User song upload (protected, 50 limit)
-router.post('/upload', protect, userUpload.single('song'), userUploadSong);
+// Wrapped with error handler for multer errors
+router.post('/upload', protect, (req, res, next) => {
+    userUpload.single('song')(req, res, (err) => {
+        if (err) {
+            // Multer error (file type, size, etc.)
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(400).json({ message: 'File too large. Maximum 50MB allowed.' });
+            }
+            return res.status(400).json({ message: err.message || 'File upload error' });
+        }
+        next();
+    });
+}, userUploadSong);
 
 // GET /api/songs/my-uploads - Get user's uploaded songs (protected)
 router.get('/my-uploads', protect, getMyUploads);
