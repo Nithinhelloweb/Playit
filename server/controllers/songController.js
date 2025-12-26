@@ -2,7 +2,14 @@ const Song = require('../models/dynamodb/Song');
 const RecentlyPlayed = require('../models/dynamodb/RecentlyPlayed');
 const { uploadFile, deleteFile } = require('../config/s3');
 const multer = require('multer');
-const mm = require('music-metadata');
+
+// Optional music-metadata import (may fail on serverless)
+let mm = null;
+try {
+    mm = require('music-metadata');
+} catch (e) {
+    console.warn('music-metadata not available, duration extraction disabled');
+}
 
 // Configure multer for user uploads
 const storage = multer.memoryStorage();
@@ -308,13 +315,15 @@ const userUploadSong = async (req, res) => {
             }
         }
 
-        // Get audio duration using music-metadata
+        // Get audio duration using music-metadata (if available)
         let duration = 0;
-        try {
-            const metadata = await mm.parseBuffer(req.file.buffer, req.file.mimetype);
-            duration = Math.floor(metadata.format.duration || 0);
-        } catch (metaErr) {
-            console.error('Error getting duration:', metaErr);
+        if (mm) {
+            try {
+                const metadata = await mm.parseBuffer(req.file.buffer, req.file.mimetype);
+                duration = Math.floor(metadata.format.duration || 0);
+            } catch (metaErr) {
+                console.error('Error getting duration:', metaErr);
+            }
         }
 
         // Upload to S3
