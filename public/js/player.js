@@ -11,7 +11,7 @@ if (!user) {
 
 /// Display user info
 document.getElementById('userName').textContent = user.name;
-document.getElementById('userEmail').textContent = user.email;
+document.getElementById('userEmail').textContent = user.email; 
 
 // Update mobile profile popup with user info
 const mobileUserName = document.getElementById('mobileUserName');
