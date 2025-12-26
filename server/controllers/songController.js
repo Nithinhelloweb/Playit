@@ -297,7 +297,7 @@ const userUploadSong = async (req, res) => {
 
         const userId = req.user.userId;
         const isAdmin = req.user.isAdmin;
-        const { title, artist, album } = req.body;
+        const { title, artist, album, duration: clientDuration } = req.body;
 
         if (!title || !artist) {
             return res.status(400).json({ message: 'Title and artist are required' });
@@ -315,9 +315,9 @@ const userUploadSong = async (req, res) => {
             }
         }
 
-        // Get audio duration using music-metadata (if available)
-        let duration = 0;
-        if (mm) {
+        // Use client-provided duration, or try server-side extraction as fallback
+        let duration = parseInt(clientDuration) || 0;
+        if (duration === 0 && mm) {
             try {
                 const metadata = await mm.parseBuffer(req.file.buffer, req.file.mimetype);
                 duration = Math.floor(metadata.format.duration || 0);

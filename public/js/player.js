@@ -11,7 +11,7 @@ if (!user) {
 
 /// Display user info
 document.getElementById('userName').textContent = user.name;
-document.getElementById('userEmail').textContent = user.email; 
+document.getElementById('userEmail').textContent = user.email;
 
 // Update mobile profile popup with user info
 const mobileUserName = document.getElementById('mobileUserName');
@@ -219,6 +219,12 @@ document.querySelectorAll('.nav-item[data-view]').forEach(item => {
     item.addEventListener('click', async (e) => {
         e.preventDefault();
         const view = item.dataset.view;
+
+        // Admin: redirect to admin panel for uploads
+        if (view === 'upload' && user.isAdmin) {
+            window.location.href = '/admin';
+            return;
+        }
 
         // Update active nav (only for items with data-view)
         document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.remove('active'));
@@ -1619,6 +1625,31 @@ document.getElementById('userUploadForm')?.addEventListener('submit', async (e) 
     uploadBtn.innerHTML = '<span class="loading-spinner"></span> Uploading...';
     progressDiv.style.display = 'block';
     progressBar.style.width = '10%';
+    statusText.textContent = 'Extracting audio duration...';
+
+    // Get audio duration client-side using HTML5 Audio API
+    let duration = 0;
+    try {
+        const audioUrl = URL.createObjectURL(fileInput.files[0]);
+        const tempAudio = new Audio(audioUrl);
+        await new Promise((resolve, reject) => {
+            tempAudio.addEventListener('loadedmetadata', () => {
+                duration = Math.floor(tempAudio.duration) || 0;
+                URL.revokeObjectURL(audioUrl);
+                resolve();
+            });
+            tempAudio.addEventListener('error', () => {
+                URL.revokeObjectURL(audioUrl);
+                resolve(); // Continue with duration=0
+            });
+            // Timeout after 5 seconds
+            setTimeout(() => resolve(), 5000);
+        });
+    } catch (err) {
+        console.error('Error getting duration:', err);
+    }
+
+    progressBar.style.width = '20%';
     statusText.textContent = 'Preparing upload...';
 
     try {
@@ -1627,6 +1658,7 @@ document.getElementById('userUploadForm')?.addEventListener('submit', async (e) 
         formData.append('title', titleInput.value);
         formData.append('artist', artistInput.value);
         formData.append('album', albumInput.value || 'Unknown Album');
+        formData.append('duration', duration.toString());
 
         progressBar.style.width = '30%';
         statusText.textContent = 'Uploading to server...';
