@@ -124,6 +124,26 @@ const API = {
         updateOrder: (orderData) => request('/songs/reorder', {
             method: 'PUT',
             body: JSON.stringify({ orderData })
+        }),
+        upload: async (formData) => {
+            const token = getToken();
+            const response = await fetch(`${API_BASE_URL}/songs/upload`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+            if (response.status === 401) {
+                clearAuth();
+                window.location.href = '/';
+                throw new Error('Unauthorized');
+            }
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Upload failed');
+            return data;
+        },
+        getMyUploads: () => request('/songs/my-uploads'),
+        deleteMyUpload: (id) => request(`/songs/my-uploads/${id}`, {
+            method: 'DELETE'
         })
     },
 

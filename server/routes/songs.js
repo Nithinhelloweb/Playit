@@ -7,7 +7,11 @@ const {
     downloadSong,
     addToRecentlyPlayed,
     getRecentlyPlayed,
-    getAlbums
+    getAlbums,
+    userUpload,
+    userUploadSong,
+    getMyUploads,
+    deleteMyUpload
 } = require('../controllers/songController');
 const { protect } = require('../middleware/auth');
 
@@ -37,6 +41,15 @@ router.post('/recently-played/:id', protect, addToRecentlyPlayed);
 
 // GET /api/songs/recently-played - Get recently played (protected)
 router.get('/recently-played', protect, getRecentlyPlayed);
+
+// POST /api/songs/upload - User song upload (protected, 50 limit)
+router.post('/upload', protect, userUpload.single('song'), userUploadSong);
+
+// GET /api/songs/my-uploads - Get user's uploaded songs (protected)
+router.get('/my-uploads', protect, getMyUploads);
+
+// DELETE /api/songs/my-uploads/:id - Delete user's own uploaded song (protected)
+router.delete('/my-uploads/:id', protect, deleteMyUpload);
 
 // PUT /api/songs/reorder - Update song order (admin only)
 const { admin } = require('../middleware/auth');

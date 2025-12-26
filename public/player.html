@@ -21,6 +21,33 @@
     <!-- Mobile Overlay -->
     <div class="mobile-overlay" id="mobileOverlay"></div>
 
+    <!-- Mobile User Profile Button (bottom-right) -->
+    <button class="mobile-profile-btn" id="mobileProfileBtn" aria-label="User profile">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+    </button>
+
+    <!-- Mobile User Popup -->
+    <div class="mobile-user-popup" id="mobileUserPopup">
+        <div class="popup-user-info">
+            <div class="popup-avatar"></div>
+            <div class="popup-details">
+                <p class="popup-name" id="mobileUserName">User</p>
+                <p class="popup-email" id="mobileUserEmail">user@example.com</p>
+            </div>
+        </div>
+        <button class="popup-logout-btn" id="mobileLogoutBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Logout
+        </button>
+    </div>
+
     <!-- Sidebar Navigation -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -78,7 +105,7 @@
                 </svg>
                 <span>Recently Played</span>
             </a>
-            <a href="#" class="nav-item admin-nav-item" id="uploadNavItem" data-view="upload" style="display: none;">
+            <a href="#" class="nav-item" id="uploadNavItem" data-view="upload">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
@@ -96,7 +123,7 @@
                         d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
                     </path>
                 </svg>
-                <span>Upload song</span>
+                <span>Admin Panel</span>
             </a>
         </div>
 
@@ -223,6 +250,79 @@
                 </div>
                 <div class="song-list" id="recentList">
                     <!-- Recently played songs will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Upload Songs View -->
+            <div class="view" id="uploadView">
+                <div class="section-header">
+                    <h2>Upload Songs</h2>
+                    <p class="song-count" id="uploadLimitInfo">Loading...</p>
+                </div>
+
+                <!-- Upload Form -->
+                <div class="upload-section"
+                    style="background: var(--bg-card); border-radius: var(--radius-md); padding: var(--spacing-lg); margin-bottom: var(--spacing-lg); border: 1px solid var(--border-color);">
+                    <form id="userUploadForm" class="upload-form">
+                        <div class="form-group" style="margin-bottom: var(--spacing-md);">
+                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Audio
+                                File *</label>
+                            <input type="file" id="userSongFile" name="song" accept="audio/*" required
+                                style="width: 100%; padding: 0.75rem; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
+                        </div>
+                        <div class="form-row"
+                            style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); margin-bottom: var(--spacing-md);">
+                            <div class="form-group">
+                                <label
+                                    style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Title
+                                    *</label>
+                                <input type="text" id="userSongTitle" name="title" required placeholder="Song title"
+                                    style="width: 100%; padding: 0.75rem; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label
+                                    style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Artist
+                                    *</label>
+                                <input type="text" id="userSongArtist" name="artist" required placeholder="Artist name"
+                                    style="width: 100%; padding: 0.75rem; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: var(--spacing-md);">
+                            <label
+                                style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Album</label>
+                            <input type="text" id="userSongAlbum" name="album" placeholder="Album name (optional)"
+                                style="width: 100%; padding: 0.75rem; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
+                        </div>
+                        <button type="submit" class="btn-primary" id="userUploadBtn"
+                            style="width: 100%; justify-content: center;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            Upload Song
+                        </button>
+                    </form>
+                    <div id="uploadProgress" style="display: none; margin-top: var(--spacing-md);">
+                        <div style="background: var(--bg-hover); border-radius: var(--radius-sm); overflow: hidden;">
+                            <div id="uploadProgressBar"
+                                style="height: 4px; background: var(--primary-gradient); width: 0%; transition: width 0.3s;">
+                            </div>
+                        </div>
+                        <p id="uploadStatus"
+                            style="text-align: center; margin-top: 0.5rem; color: var(--text-secondary);">Uploading...
+                        </p>
+                    </div>
+                </div>
+
+                <!-- My Uploads List -->
+                <div class="section-header">
+                    <h2>My Uploads</h2>
+                    <p class="song-count" id="myUploadsCount">0 songs</p>
+                </div>
+                <div class="song-list" id="myUploadsList">
+                    <!-- User's uploaded songs will be loaded here -->
                 </div>
             </div>
         </div>

@@ -2099,3 +2099,132 @@ body {
         min-height: 44px;
     }
 }
+
+/* ===== MOBILE USER PROFILE BUTTON ===== */
+.mobile-profile-btn {
+    display: none;
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    border: none;
+    color: white;
+    cursor: pointer;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(151, 236, 72, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-profile-btn:hover,
+.mobile-profile-btn:active {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(151, 236, 72, 0.5);
+}
+
+.mobile-profile-btn.active {
+    background: var(--error-color);
+}
+
+/* Mobile User Popup */
+.mobile-user-popup {
+    display: none;
+    position: fixed;
+    top: 65px;
+    right: 16px;
+    width: 260px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    z-index: 999;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.mobile-user-popup.active {
+    display: block;
+}
+
+.popup-user-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: var(--spacing-md);
+}
+
+.popup-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    flex-shrink: 0;
+}
+
+.popup-details {
+    overflow: hidden;
+}
+
+.popup-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+}
+
+.popup-email {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+}
+
+.popup-logout-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(255, 77, 77, 0.15);
+    border: 1px solid var(--error-color);
+    border-radius: var(--radius-sm);
+    color: var(--error-color);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.popup-logout-btn:hover,
+.popup-logout-btn:active {
+    background: rgba(255, 77, 77, 0.25);
+}
+
+/* Show mobile profile button only on mobile */
+@media (max-width: 768px) {
+    .mobile-profile-btn {
+        display: flex;
+    }
+}

@@ -13,18 +13,48 @@ if (!user) {
 document.getElementById('userName').textContent = user.name;
 document.getElementById('userEmail').textContent = user.email;
 
+// Update mobile profile popup with user info
+const mobileUserName = document.getElementById('mobileUserName');
+const mobileUserEmail = document.getElementById('mobileUserEmail');
+if (mobileUserName) mobileUserName.textContent = user.name;
+if (mobileUserEmail) mobileUserEmail.textContent = user.email;
+
 // Show admin link if user is admin
 if (user.isAdmin) {
     document.getElementById('adminLink').style.display = 'block';
-    // Show Upload Songs nav item for admin
-    document.getElementById('uploadNavItem').style.display = 'flex';
 }
 
-// Logout
+// Logout (both desktop and mobile)
 document.getElementById('logoutBtn').addEventListener('click', () => {
     API.clearAuth();
     window.location.href = '/';
 });
+
+document.getElementById('mobileLogoutBtn')?.addEventListener('click', () => {
+    API.clearAuth();
+    window.location.href = '/';
+});
+
+// ===== MOBILE PROFILE BUTTON =====
+const mobileProfileBtn = document.getElementById('mobileProfileBtn');
+const mobileUserPopup = document.getElementById('mobileUserPopup');
+
+if (mobileProfileBtn && mobileUserPopup) {
+    // Toggle popup on button click
+    mobileProfileBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        mobileProfileBtn.classList.toggle('active');
+        mobileUserPopup.classList.toggle('active');
+    });
+
+    // Close popup when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!mobileUserPopup.contains(e.target) && !mobileProfileBtn.contains(e.target)) {
+            mobileProfileBtn.classList.remove('active');
+            mobileUserPopup.classList.remove('active');
+        }
+    });
+}
 
 // ===== MOBILE MENU TOGGLE =====
 const mobileMenuToggle = document.getElementById('mobileMenuToggle');
@@ -190,12 +220,6 @@ document.querySelectorAll('.nav-item[data-view]').forEach(item => {
         e.preventDefault();
         const view = item.dataset.view;
 
-        // Special case: Upload redirects to admin page
-        if (view === 'upload') {
-            window.location.href = '/admin';
-            return;
-        }
-
         // Update active nav (only for items with data-view)
         document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.remove('active'));
         item.classList.add('active');
@@ -213,6 +237,8 @@ document.querySelectorAll('.nav-item[data-view]').forEach(item => {
             await loadRecentlyPlayed();
         } else if (view === 'albums') {
             await loadAlbums();
+        } else if (view === 'upload') {
+            await loadMyUploads();
         }
 
         state.currentView = view;
@@ -1443,3 +1469,208 @@ loadInitialData();
     console.log('✅ Expandable Player Modal initialized');
 
 })();
+
+// ===== USER UPLOAD FUNCTIONALITY =====
+
+// Load user's uploads and update limit info
+const loadMyUploads = async () => {
+    try {
+        const data = await API.songs.getMyUploads();
+
+        // Update limit info
+        const limitInfo = document.getElementById('uploadLimitInfo');
+        if (data.limit === 'unlimited') {
+            limitInfo.textContent = `Admin: Unlimited uploads`;
+        } else {
+            limitInfo.textContent = `${data.count} / ${data.limit} songs uploaded (${data.remaining} remaining)`;
+        }
+
+        // Update my uploads count
+        document.getElementById('myUploadsCount').textContent = `${data.count} songs`;
+
+        // Render my uploads list with delete buttons
+        const container = document.getElementById('myUploadsList');
+        if (data.songs.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No uploads yet. Upload your first song above!</p>';
+            return;
+        }
+
+        container.innerHTML = data.songs.map((song, index) => `
+            <div class="song-item" data-song-id="${song._id}">
+                <div class="song-album-art">
+                    ${song.coverImage
+                ? `<img src="${song.coverImage}" alt="${song.album || 'Album'}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                             <path d="M9 18V5l12-2v13"></path>
+                             <circle cx="6" cy="18" r="3"></circle>
+                             <circle cx="18" cy="16" r="3"></circle>
+                           </svg>`
+                : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                             <path d="M9 18V5l12-2v13"></path>
+                             <circle cx="6" cy="18" r="3"></circle>
+                             <circle cx="18" cy="16" r="3"></circle>
+                           </svg>`}
+                </div>
+                <span class="song-index">${index + 1}</span>
+                <div class="song-info">
+                    <p class="song-title">${song.title}</p>
+                    <p class="song-artist">${song.artist}</p>
+                </div>
+                <span class="song-duration">${formatTime(song.duration)}</span>
+                <div class="song-actions">
+                    <button class="btn-icon delete-upload-btn" data-song-id="${song._id}" title="Delete song" style="color: var(--error-color);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        // Add click handlers for playing songs
+        container.querySelectorAll('.song-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                if (!e.target.closest('.delete-upload-btn')) {
+                    const songId = item.dataset.songId;
+                    const song = data.songs.find(s => s._id === songId);
+                    if (song) {
+                        playSong(song);
+                    }
+                }
+            });
+        });
+
+        // Add delete button handlers
+        container.querySelectorAll('.delete-upload-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const songId = btn.dataset.songId;
+                const song = data.songs.find(s => s._id === songId);
+
+                if (confirm(`Delete "${song?.title || 'this song'}"? This cannot be undone.`)) {
+                    try {
+                        await API.songs.deleteMyUpload(songId);
+                        await loadMyUploads();
+                        await loadInitialData();
+                    } catch (error) {
+                        alert('Error deleting song: ' + error.message);
+                    }
+                }
+            });
+        });
+
+        // Disable upload button if limit reached (non-admin)
+        if (data.limit !== 'unlimited' && data.remaining <= 0) {
+            const uploadBtn = document.getElementById('userUploadBtn');
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Upload Limit Reached';
+            uploadBtn.style.opacity = '0.5';
+            uploadBtn.style.cursor = 'not-allowed';
+        }
+    } catch (error) {
+        console.error('Error loading my uploads:', error);
+    }
+};
+
+// Auto-fill title from filename
+document.getElementById('userSongFile')?.addEventListener('change', function (e) {
+    const file = e.target.files[0];
+    if (file) {
+        // Extract filename without extension
+        const titleInput = document.getElementById('userSongTitle');
+        if (!titleInput.value) {
+            let filename = file.name;
+            // Remove extension
+            filename = filename.replace(/\.[^/.]+$/, '');
+            // Remove leading numbers and dots (e.g., "01. Song Name" -> "Song Name")
+            filename = filename.replace(/^[\d\.\-\s]+/, '');
+            // Remove "Masstamilan" and everything after it (case-insensitive)
+            filename = filename.replace(/\s*[-_]?\s*masstamilan.*/i, '');
+            // Clean up trailing dashes, underscores, and spaces
+            filename = filename.replace(/[\s\-_]+$/, '');
+            titleInput.value = filename.trim();
+        }
+    }
+});
+
+// Handle user upload form submission
+document.getElementById('userUploadForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const fileInput = document.getElementById('userSongFile');
+    const titleInput = document.getElementById('userSongTitle');
+    const artistInput = document.getElementById('userSongArtist');
+    const albumInput = document.getElementById('userSongAlbum');
+    const uploadBtn = document.getElementById('userUploadBtn');
+    const progressDiv = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('uploadProgressBar');
+    const statusText = document.getElementById('uploadStatus');
+
+    if (!fileInput.files[0]) {
+        alert('Please select an audio file');
+        return;
+    }
+
+    // Disable button and show progress
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<span class="loading-spinner"></span> Uploading...';
+    progressDiv.style.display = 'block';
+    progressBar.style.width = '10%';
+    statusText.textContent = 'Preparing upload...';
+
+    try {
+        const formData = new FormData();
+        formData.append('song', fileInput.files[0]);
+        formData.append('title', titleInput.value);
+        formData.append('artist', artistInput.value);
+        formData.append('album', albumInput.value || 'Unknown Album');
+
+        progressBar.style.width = '30%';
+        statusText.textContent = 'Uploading to server...';
+
+        const result = await API.songs.upload(formData);
+
+        progressBar.style.width = '100%';
+        statusText.textContent = '✅ Upload successful!';
+
+        // Reset form
+        e.target.reset();
+
+        // Reload data
+        await loadMyUploads();
+        await loadInitialData();
+
+        // Show success
+        setTimeout(() => {
+            progressDiv.style.display = 'none';
+            progressBar.style.width = '0%';
+        }, 2000);
+
+    } catch (error) {
+        console.error('Upload error:', error);
+        statusText.textContent = `❌ Error: ${error.message}`;
+        progressBar.style.width = '0%';
+    } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Upload Song`;
+    }
+});
+
+// Load my uploads when upload view is shown
+document.querySelector('[data-view="upload"]')?.addEventListener('click', () => {
+    loadMyUploads();
+});
+
+// Initial load if on upload view
+if (document.getElementById('uploadView')?.classList.contains('active')) {
+    loadMyUploads();
+}

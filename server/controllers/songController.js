@@ -1,6 +1,24 @@
 const Song = require('../models/dynamodb/Song');
 const RecentlyPlayed = require('../models/dynamodb/RecentlyPlayed');
+const { uploadFile, deleteFile } = require('../config/s3');
+const multer = require('multer');
+const mm = require('music-metadata');
 
+// Configure multer for user uploads
+const storage = multer.memoryStorage();
+const userUpload = multer({
+    storage: storage,
+    fileFilter: (req, file, cb) => {
+        const allowedMimes = ['audio/mpeg', 'audio/mp3', 'audio/m4a', 'audio/wav', 'audio/x-m4a', 'audio/flac'];
+        if (!allowedMimes.includes(file.mimetype)) {
+            return cb(new Error('Only audio files are allowed (MP3, WAV, M4A, FLAC)'));
+        }
+        cb(null, true);
+    },
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit for users
+});
+
+const USER_UPLOAD_LIMIT = 50;
 /**
  * Get all songs
  * GET /api/songs
@@ -259,6 +277,147 @@ const updateSongOrder = async (req, res) => {
     }
 };
 
+/**
+ * User upload song
+ * POST /api/songs/upload
+ * Enforces 50-song limit per user (admin unlimited)
+ */
+const userUploadSong = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'Please upload an audio file' });
+        }
+
+        const userId = req.user.userId;
+        const isAdmin = req.user.isAdmin;
+        const { title, artist, album } = req.body;
+
+        if (!title || !artist) {
+            return res.status(400).json({ message: 'Title and artist are required' });
+        }
+
+        // Check upload limit (admin = unlimited)
+        if (!isAdmin) {
+            const count = await Song.countByUser(userId);
+            if (count >= USER_UPLOAD_LIMIT) {
+                return res.status(403).json({
+                    message: `Upload limit reached. Maximum ${USER_UPLOAD_LIMIT} songs per user.`,
+                    currentCount: count,
+                    limit: USER_UPLOAD_LIMIT
+                });
+            }
+        }
+
+        // Get audio duration using music-metadata
+        let duration = 0;
+        try {
+            const metadata = await mm.parseBuffer(req.file.buffer, req.file.mimetype);
+            duration = Math.floor(metadata.format.duration || 0);
+        } catch (metaErr) {
+            console.error('Error getting duration:', metaErr);
+        }
+
+        // Upload to S3
+        const s3Key = `songs/${Date.now()}-${req.file.originalname}`;
+        const s3Url = await uploadFile(s3Key, req.file.buffer, req.file.mimetype);
+
+        // Create song record with uploadedBy
+        const song = await Song.create({
+            title,
+            artist,
+            album: album || 'Unknown Album',
+            duration,
+            s3Key,
+            s3Url,
+            mimeType: req.file.mimetype,
+            uploadedBy: userId
+        });
+
+        // Get updated count
+        const uploadCount = await Song.countByUser(userId);
+
+        res.status(201).json({
+            ...song,
+            _id: song.songId,
+            uploadCount,
+            limit: isAdmin ? 'unlimited' : USER_UPLOAD_LIMIT
+        });
+    } catch (error) {
+        console.error('User upload error:', error);
+        res.status(500).json({ message: 'Error uploading song', error: error.message });
+    }
+};
+
+/**
+ * Get user's uploaded songs
+ * GET /api/songs/my-uploads
+ */
+const getMyUploads = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const isAdmin = req.user.isAdmin;
+        const songs = await Song.findByUser(userId);
+
+        const songsWithId = songs.map(song => ({
+            ...song,
+            _id: song.songId
+        }));
+
+        res.json({
+            songs: songsWithId,
+            count: songs.length,
+            limit: isAdmin ? 'unlimited' : USER_UPLOAD_LIMIT,
+            remaining: isAdmin ? 'unlimited' : Math.max(0, USER_UPLOAD_LIMIT - songs.length)
+        });
+    } catch (error) {
+        console.error('Get my uploads error:', error);
+        res.status(500).json({ message: 'Error fetching uploads' });
+    }
+};
+
+/**
+ * Delete user's own uploaded song
+ * DELETE /api/songs/my-uploads/:id
+ * Users can only delete songs they uploaded
+ */
+const deleteMyUpload = async (req, res) => {
+    try {
+        const songId = req.params.id;
+        const userId = req.user.userId;
+        const isAdmin = req.user.isAdmin;
+
+        // Get song to check ownership
+        const song = await Song.findById(songId);
+
+        if (!song) {
+            return res.status(404).json({ message: 'Song not found' });
+        }
+
+        // Check ownership (admin can delete any song)
+        if (!isAdmin && song.uploadedBy !== userId) {
+            return res.status(403).json({ message: 'You can only delete songs you uploaded' });
+        }
+
+        // Delete from S3 if file exists
+        if (song.s3Key) {
+            try {
+                await deleteFile(song.s3Key);
+            } catch (s3Error) {
+                console.error('Error deleting from S3:', s3Error);
+                // Continue with DB deletion even if S3 fails
+            }
+        }
+
+        // Delete from database
+        await Song.delete(songId);
+
+        res.json({ message: 'Song deleted successfully' });
+    } catch (error) {
+        console.error('Delete my upload error:', error);
+        res.status(500).json({ message: 'Error deleting song' });
+    }
+};
+
 module.exports = {
     getAllSongs,
     getSongById,
@@ -268,5 +427,9 @@ module.exports = {
     addToRecentlyPlayed,
     getRecentlyPlayed,
     getAlbums,
-    updateSongOrder
+    updateSongOrder,
+    userUpload,
+    userUploadSong,
+    getMyUploads,
+    deleteMyUpload
 };

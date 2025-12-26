@@ -32,6 +32,7 @@ class Song {
             s3Url: songData.s3Url,
             mimeType: songData.mimeType || 'audio/mpeg',
             coverImage: songData.coverImage || null,
+            uploadedBy: songData.uploadedBy || null,
             sortOrder: maxOrder + 1,
             createdAt: now,
             updatedAt: now
@@ -228,6 +229,40 @@ class Song {
             }
         }
         return updateCount;
+    }
+
+    /**
+     * Count songs uploaded by a specific user
+     * @param {string} userId - User ID to count songs for
+     * @returns {Promise<number>} Count of songs
+     */
+    static async countByUser(userId) {
+        const songs = await this.findAll();
+        return songs.filter(s => s.uploadedBy === userId).length;
+    }
+
+    /**
+     * Find all songs uploaded by a specific user
+     * @param {string} userId - User ID
+     * @returns {Promise<Array>} Array of songs
+     */
+    static async findByUser(userId) {
+        const songs = await this.findAll();
+        return songs.filter(s => s.uploadedBy === userId);
+    }
+
+    /**
+     * Delete a song by ID
+     * @param {string} songId - Song ID to delete
+     */
+    static async delete(songId) {
+        const command = new DeleteCommand({
+            TableName: TABLES.SONGS,
+            Key: { songId }
+        });
+
+        await execute(command);
+        return true;
     }
 }
 
