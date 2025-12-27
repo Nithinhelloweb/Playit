@@ -42,10 +42,26 @@ const USER_UPLOAD_LIMIT = 50;
 /**
  * Get all songs
  * GET /api/songs
+ * Returns approved songs + user's own uploads (if authenticated)
  */
 const getAllSongs = async (req, res) => {
     try {
-        const songs = await Song.findAll();
+        let songs = await Song.findAll();
+
+        // Filter based on authentication and approval
+        const userId = req.user?.userId;
+
+        songs = songs.filter(song => {
+            // Show approved songs to everyone
+            if (song.approved === true || song.approved === undefined) {
+                return true;
+            }
+            // Show unapproved songs only to the uploader
+            if (userId && song.uploadedBy === userId) {
+                return true;
+            }
+            return false;
+        });
 
         // Map to include _id for backward compatibility
         const songsWithId = songs.map(song => ({
@@ -343,7 +359,7 @@ const userUploadSong = async (req, res) => {
         const s3Key = `songs/${Date.now()}-${req.file.originalname}`;
         const s3Url = await uploadFile(s3Key, req.file.buffer, req.file.mimetype);
 
-        // Create song record with uploadedBy
+        // Create song record with uploadedBy and approved=false (pending admin approval)
         const song = await Song.create({
             title,
             artist,
@@ -352,7 +368,8 @@ const userUploadSong = async (req, res) => {
             s3Key,
             s3Url,
             mimeType: req.file.mimetype,
-            uploadedBy: userId
+            uploadedBy: userId,
+            approved: isAdmin // Auto-approve admin uploads, users need approval
         });
 
         // Get updated count

@@ -415,6 +415,22 @@ input[type="file"]:hover+.file-name {
     background: rgba(239, 68, 68, 0.1);
 }
 
+.btn-approve {
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    border: 1px solid var(--success-color);
+    border-radius: var(--radius-sm);
+    color: var(--success-color);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-approve:hover {
+    background: rgba(16, 185, 129, 0.1);
+}
+
 .btn-icon {
     width: 36px;
     height: 36px;

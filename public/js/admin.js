@@ -47,7 +47,58 @@ const loadUsers = async () => {
     }
 };
 
+const loadPendingSongs = async () => {
+    try {
+        const pendingSongs = await API.admin.getPendingSongs();
+        renderPendingTable(pendingSongs);
+        document.getElementById('pendingCount').textContent = `${pendingSongs.length} pending`;
+    } catch (error) {
+        console.error('Failed to load pending songs:', error);
+    }
+};
+
 // ===== RENDER TABLES =====
+const renderPendingTable = (songs) => {
+    const container = document.getElementById('pendingContainer');
+
+    if (songs.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-secondary);">No pending uploads</p>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Artist</th>
+                    <th>Album</th>
+                    <th>Uploaded By</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${songs.map(song => `
+                    <tr>
+                        <td><strong>${song.title}</strong></td>
+                        <td>${song.artist}</td>
+                        <td>${song.album || 'Unknown Album'}</td>
+                        <td>${song.uploadedBy || 'Unknown'}</td>
+                        <td>
+                            <button class="btn-approve" onclick="approveSong('${song.songId}', '${song.title.replace(/'/g, "\\'")}')">
+                                ✓ Approve
+                            </button>
+                            <button class="btn-delete" onclick="deleteSong('${song.songId}', '${song.title.replace(/'/g, "\\'")}')">
+                                ✗ Delete
+                            </button>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+};
+
 const renderSongsTable = () => {
     const container = document.getElementById('songsContainer');
 
@@ -644,3 +695,24 @@ loadUsers();
     });
 
 })();
+
+// ===== APPROVE SONG =====
+window.approveSong = async (songId, title) => {
+    if (!confirm(`Approve "${title}"? This will make it visible to all users.`)) {
+        return;
+    }
+
+    try {
+        await API.admin.approveSong(songId);
+        await loadPendingSongs();
+        await loadSongs();
+        alert(`✓ "${title}" approved successfully!`);
+    } catch (error) {
+        alert('Error approving song: ' + error.message);
+    }
+};
+
+// ===== INITIALIZE =====
+loadSongs();
+loadUsers();
+loadPendingSongs();

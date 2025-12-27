@@ -5,7 +5,9 @@ const {
     editSong,
     deleteSong,
     getAllUsers,
-    deleteUser
+    deleteUser,
+    getPendingSongs,
+    approveSong
 } = require('../controllers/adminController');
 const { protect, admin } = require('../middleware/auth');
 
@@ -18,6 +20,12 @@ const router = express.Router();
 
 // POST /api/admin/upload - Upload new song
 router.post('/upload', protect, admin, upload.single('song'), uploadSong);
+
+// GET /api/admin/pending-songs - Get pending user uploads
+router.get('/pending-songs', protect, admin, getPendingSongs);
+
+// PUT /api/admin/songs/:id/approve - Approve a user upload
+router.put('/songs/:id/approve', protect, admin, approveSong);
 
 // PUT /api/admin/songs/:id - Edit song metadata
 router.put('/songs/:id', protect, admin, editSong);

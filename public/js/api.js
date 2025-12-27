@@ -216,6 +216,10 @@ const API = {
         getUsers: () => request('/admin/users'),
         deleteUser: (id) => request(`/admin/users/${id}`, {
             method: 'DELETE'
+        }),
+        getPendingSongs: () => request('/admin/pending-songs'),
+        approveSong: (id) => request(`/admin/songs/${id}/approve`, {
+            method: 'PUT'
         })
     },
 

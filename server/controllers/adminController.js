@@ -354,11 +354,51 @@ const deleteUser = async (req, res) => {
     }
 };
 
+/**
+ * Get all songs pending admin approval
+ * GET /api/admin/pending-songs
+ */
+const getPendingSongs = async (req, res) => {
+    try {
+        const songs = await Song.findPendingApproval();
+
+        // Map to include _id for backward compatibility
+        const songsWithId = songs.map(song => ({
+            ...song,
+            _id: song.songId
+        }));
+
+        res.json(songsWithId);
+    } catch (error) {
+        console.error('Get pending songs error:', error);
+        res.status(500).json({ message: 'Error fetching pending songs' });
+    }
+};
+
+/**
+ * Approve a song (make it visible globally)
+ * PUT /api/admin/songs/:id/approve
+ */
+const approveSong = async (req, res) => {
+    try {
+        const song = await Song.approve(req.params.id);
+        res.json({
+            message: 'Song approved successfully',
+            song: { ...song, _id: song.songId }
+        });
+    } catch (error) {
+        console.error('Approve song error:', error);
+        res.status(500).json({ message: error.message || 'Error approving song' });
+    }
+};
+
 module.exports = {
     upload,
     uploadSong,
     editSong,
     deleteSong,
     getAllUsers,
-    deleteUser
+    deleteUser,
+    getPendingSongs,
+    approveSong
 };

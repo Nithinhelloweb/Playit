@@ -33,6 +33,7 @@ class Song {
             mimeType: songData.mimeType || 'audio/mpeg',
             coverImage: songData.coverImage || null,
             uploadedBy: songData.uploadedBy || null,
+            approved: songData.approved !== undefined ? songData.approved : true, // Default true for backwards compatibility
             sortOrder: maxOrder + 1,
             createdAt: now,
             updatedAt: now
@@ -263,6 +264,41 @@ class Song {
 
         await execute(command);
         return true;
+    }
+
+    /**
+     * Find all songs pending admin approval
+     * @returns {Promise<Array>} Array of unapproved songs
+     */
+    static async findPendingApproval() {
+        const songs = await this.findAll();
+        return songs.filter(s => s.approved === false && s.uploadedBy !== null);
+    }
+
+    /**
+     * Approve a song (make it visible globally)
+     * @param {string} songId - Song ID to approve
+     * @returns {Promise<Object>} Updated song
+     */
+    static async approve(songId) {
+        const song = await this.findById(songId);
+        if (!song) {
+            throw new Error('Song not found');
+        }
+
+        const command = new UpdateCommand({
+            TableName: TABLES.SONGS,
+            Key: { songId },
+            UpdateExpression: 'SET approved = :approved, updatedAt = :updatedAt',
+            ExpressionAttributeValues: {
+                ':approved': true,
+                ':updatedAt': Date.now()
+            },
+            ReturnValues: 'ALL_NEW'
+        });
+
+        const result = await execute(command);
+        return result.Attributes;
     }
 }
 
